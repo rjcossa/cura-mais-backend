@@ -1,0 +1,4219 @@
+openapi: 3.1.0
+info:
+  title: Health Platform Backend
+  description: 'Health Platform & Digital Medicine Marketplace backend (modular monolith).
+    **Identity**: registration, authentication, sessions, MFA, social login, and role/permission
+    management. **Onboarding**: applicant onboarding, document review, verification
+    checks, and maker-checker approval for doctors, nutritionists, hospitals, clinics,
+    and pharmacies.'
+  version: 0.2.0
+paths:
+  /api/v1/auth/register/patient:
+    post:
+      tags:
+      - Authentication
+      summary: Register a new patient
+      operationId: register_patient_api_v1_auth_register_patient_post
+      parameters:
+      - name: Idempotency-Key
+        in: header
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Idempotency-Key
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatientRegisterRequest'
+      responses:
+        '201':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessEnvelope_RegisterResponse_'
+        '422':
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '401':
+          description: Authentication failed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '429':
+          description: Rate limited
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '409':
+          description: Email or mobile already registered
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+  /api/v1/auth/register/doctor:
+    post:
+      tags:
+      - Authentication
+      summary: Register a new doctor applicant
+      operationId: register_doctor_api_v1_auth_register_doctor_post
+      parameters:
+      - name: Idempotency-Key
+        in: header
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Idempotency-Key
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DoctorRegisterRequest'
+      responses:
+        '201':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessEnvelope_RegisterResponse_'
+        '422':
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '401':
+          description: Authentication failed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '429':
+          description: Rate limited
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '409':
+          description: Email or mobile already registered
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+  /api/v1/auth/login:
+    post:
+      tags:
+      - Authentication
+      summary: Log in with email and password
+      description: Returns tokens directly, or an MFA challenge if the account has
+        MFA enabled.
+      operationId: login_api_v1_auth_login_post
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginRequest'
+        required: true
+      responses:
+        '200':
+          description: Either a token pair or an MFA challenge
+          content:
+            application/json:
+              schema: {}
+              examples:
+                success:
+                  value:
+                    success: true
+                    data:
+                      accessToken: '...'
+                      refreshToken: '...'
+                      tokenType: Bearer
+                      expiresIn: 900
+                      mfaRequired: false
+                mfa_required:
+                  value:
+                    success: true
+                    data:
+                      mfaRequired: true
+                      challengeId: 8476985a-6856-4057-8f9d-b6f5cde09427
+                      methods:
+                      - AUTHENTICATOR
+        '422':
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '401':
+          description: Authentication failed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '429':
+          description: Rate limited
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '423':
+          description: Account locked
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '403':
+          description: Account suspended or deactivated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+  /api/v1/auth/refresh:
+    post:
+      tags:
+      - Authentication
+      summary: Rotate a refresh token for a new access/refresh token pair
+      operationId: refresh_token_api_v1_auth_refresh_post
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RefreshTokenRequest'
+        required: true
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessEnvelope_TokenPair_'
+        '422':
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '401':
+          description: Refresh token invalid, expired, revoked, or reused
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '429':
+          description: Rate limited
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+  /api/v1/auth/logout:
+    post:
+      tags:
+      - Authentication
+      summary: Log out the current session
+      operationId: logout_api_v1_auth_logout_post
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '401':
+          description: Authentication failed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '429':
+          description: Rate limited
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+      security:
+      - HTTPBearer: []
+  /api/v1/auth/logout-all:
+    post:
+      tags:
+      - Authentication
+      summary: Log out of all devices/sessions
+      operationId: logout_all_api_v1_auth_logout_all_post
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '401':
+          description: Authentication failed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '429':
+          description: Rate limited
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+      security:
+      - HTTPBearer: []
+  /api/v1/auth/email/resend-verification:
+    post:
+      tags:
+      - Verification
+      summary: Resend the email verification link
+      operationId: resend_email_verification_api_v1_auth_email_resend_verification_post
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ResendEmailVerificationRequest'
+        required: true
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Unprocessable Entity
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+  /api/v1/auth/email/verify:
+    post:
+      tags:
+      - Verification
+      summary: Verify an email address
+      operationId: verify_email_api_v1_auth_email_verify_post
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/VerifyEmailRequest'
+        required: true
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Unprocessable Entity
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '400':
+          description: Token invalid, expired, or already used
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+  /api/v1/auth/mobile/send-otp:
+    post:
+      tags:
+      - Verification
+      summary: Send a one-time code to a mobile number
+      operationId: send_mobile_otp_api_v1_auth_mobile_send_otp_post
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SendOtpRequest'
+        required: true
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Unprocessable Entity
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+  /api/v1/auth/mobile/verify-otp:
+    post:
+      tags:
+      - Verification
+      summary: Verify a mobile one-time code
+      operationId: verify_mobile_otp_api_v1_auth_mobile_verify_otp_post
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/VerifyOtpRequest'
+        required: true
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Unprocessable Entity
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '400':
+          description: Code expired
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '401':
+          description: Incorrect code
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '429':
+          description: Too many incorrect attempts
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+  /api/v1/auth/password/change:
+    post:
+      tags:
+      - Password
+      summary: Change the current user's password
+      operationId: change_password_api_v1_auth_password_change_post
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ChangePasswordRequest'
+        required: true
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Unprocessable Entity
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '401':
+          description: Current password incorrect
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+      security:
+      - HTTPBearer: []
+  /api/v1/auth/password/forgot:
+    post:
+      tags:
+      - Password
+      summary: Request a password reset link
+      operationId: forgot_password_api_v1_auth_password_forgot_post
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ForgotPasswordRequest'
+        required: true
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Unprocessable Entity
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+  /api/v1/auth/password/reset:
+    post:
+      tags:
+      - Password
+      summary: Reset a password using a reset token
+      operationId: reset_password_api_v1_auth_password_reset_post
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ResetPasswordRequest'
+        required: true
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Unprocessable Entity
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '400':
+          description: Token invalid or expired
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+  /api/v1/auth/mfa/authenticator/enrol:
+    post:
+      tags:
+      - Multi-Factor Authentication
+      summary: Start authenticator-app (TOTP) enrolment
+      operationId: enrol_authenticator_api_v1_auth_mfa_authenticator_enrol_post
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessEnvelope_EnrolAuthenticatorResponse_'
+        '422':
+          description: Unprocessable Entity
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+      security:
+      - HTTPBearer: []
+  /api/v1/auth/mfa/authenticator/confirm:
+    post:
+      tags:
+      - Multi-Factor Authentication
+      summary: Confirm authenticator enrolment with a TOTP code
+      operationId: confirm_authenticator_api_v1_auth_mfa_authenticator_confirm_post
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ConfirmAuthenticatorRequest'
+        required: true
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessEnvelope_ConfirmAuthenticatorResponse_'
+        '422':
+          description: Unprocessable Entity
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '400':
+          description: Enrolment expired or already confirmed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '401':
+          description: Incorrect code
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+      security:
+      - HTTPBearer: []
+  /api/v1/auth/mfa/verify:
+    post:
+      tags:
+      - Multi-Factor Authentication
+      summary: Complete login by verifying an MFA challenge
+      description: method is one of AUTHENTICATOR | SMS | EMAIL | RECOVERY_CODE.
+      operationId: verify_mfa_api_v1_auth_mfa_verify_post
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/VerifyMfaRequest'
+        required: true
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Unprocessable Entity
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '401':
+          description: Incorrect code or expired challenge
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+  /api/v1/auth/mfa/recovery-codes/regenerate:
+    post:
+      tags:
+      - Multi-Factor Authentication
+      summary: Regenerate recovery codes (invalidates all unused prior codes)
+      operationId: regenerate_recovery_codes_api_v1_auth_mfa_recovery_codes_regenerate_post
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DisableMfaRequest'
+        required: true
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Unprocessable Entity
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '401':
+          description: Password confirmation required/incorrect
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+      security:
+      - HTTPBearer: []
+  /api/v1/auth/mfa/{method_id}:
+    delete:
+      tags:
+      - Multi-Factor Authentication
+      summary: Disable an MFA method
+      operationId: disable_mfa_api_v1_auth_mfa__method_id__delete
+      security:
+      - HTTPBearer: []
+      parameters:
+      - name: method_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Method Id
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DisableMfaRequest'
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Unprocessable Entity
+        '401':
+          description: Password confirmation required/incorrect
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '409':
+          description: Cannot disable the last mandatory MFA method
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+  /api/v1/auth/sessions:
+    get:
+      tags:
+      - Sessions
+      summary: List active sessions
+      operationId: list_sessions_api_v1_auth_sessions_get
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessEnvelope_list_SessionOut__'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+      security:
+      - HTTPBearer: []
+  /api/v1/auth/sessions/{session_id}:
+    delete:
+      tags:
+      - Sessions
+      summary: Revoke a session
+      operationId: revoke_session_api_v1_auth_sessions__session_id__delete
+      security:
+      - HTTPBearer: []
+      parameters:
+      - name: session_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+          title: Session Id
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '401':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Unauthorized
+        '404':
+          description: Session not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/v1/auth/social/login:
+    post:
+      tags:
+      - Social Login
+      summary: Log in or register via Google / Apple / Facebook
+      operationId: social_login_api_v1_auth_social_login_post
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SocialLoginRequest'
+        required: true
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '401':
+          description: Social token could not be verified
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '409':
+          description: An account with this email already exists
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/v1/auth/social/link:
+    post:
+      tags:
+      - Social Login
+      summary: Link an additional social provider to the current account
+      operationId: link_social_provider_api_v1_auth_social_link_post
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LinkSocialProviderRequest'
+        required: true
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '401':
+          description: Social token could not be verified
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+      security:
+      - HTTPBearer: []
+  /api/v1/auth/social/{provider}:
+    delete:
+      tags:
+      - Social Login
+      summary: Unlink a social provider
+      operationId: unlink_social_provider_api_v1_auth_social__provider__delete
+      security:
+      - HTTPBearer: []
+      parameters:
+      - name: provider
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Provider
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '401':
+          description: Social token could not be verified
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '409':
+          description: Cannot remove your only remaining authentication method
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/v1/users/me:
+    get:
+      tags:
+      - Users
+      summary: Get the current user's profile
+      operationId: get_current_user_profile_api_v1_users_me_get
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessEnvelope_UserProfileOut_'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+      security:
+      - HTTPBearer: []
+    patch:
+      tags:
+      - Users
+      summary: Update preferred language / timezone
+      description: 'Only preferredLanguage and timezone are updated here. Email and
+        mobile number changes go through their own re-verification flows: POST /users/me/email/change-request
+        and POST /users/me/mobile/change-request.'
+      operationId: update_current_user_api_v1_users_me_patch
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateCurrentUserRequest'
+        required: true
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessEnvelope_UserProfileOut_'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+      security:
+      - HTTPBearer: []
+  /api/v1/users/me/email/change-request:
+    post:
+      tags:
+      - Users
+      summary: Request an email address change
+      operationId: request_email_change_api_v1_users_me_email_change_request_post
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ChangeEmailRequest'
+        required: true
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '401':
+          description: Current password incorrect
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '409':
+          description: Email already registered to another account
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+      security:
+      - HTTPBearer: []
+  /api/v1/users/me/email/confirm:
+    post:
+      tags:
+      - Users
+      summary: Confirm an email address change
+      operationId: confirm_email_change_api_v1_users_me_email_confirm_post
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ConfirmEmailChangeRequest'
+        required: true
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '400':
+          description: Token invalid, expired, or already used
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+      security:
+      - HTTPBearer: []
+  /api/v1/users/me/mobile/change-request:
+    post:
+      tags:
+      - Users
+      summary: Request a mobile number change
+      operationId: request_mobile_change_api_v1_users_me_mobile_change_request_post
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ChangeMobileRequest'
+        required: true
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '401':
+          description: Current password incorrect
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '409':
+          description: Mobile number already registered to another account
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+      security:
+      - HTTPBearer: []
+  /api/v1/users/me/mobile/confirm:
+    post:
+      tags:
+      - Users
+      summary: Confirm a mobile number change with the OTP
+      operationId: confirm_mobile_change_api_v1_users_me_mobile_confirm_post
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ConfirmMobileChangeRequest'
+        required: true
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '401':
+          description: Incorrect code
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '400':
+          description: Code expired
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+      security:
+      - HTTPBearer: []
+  /api/v1/users/me/deactivate:
+    post:
+      tags:
+      - Users
+      summary: Deactivate the current user's account
+      operationId: deactivate_account_api_v1_users_me_deactivate_post
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DeactivateAccountRequest'
+        required: true
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '401':
+          description: Current password incorrect
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+      security:
+      - HTTPBearer: []
+  /api/v1/admin/users/{user_id}/roles:
+    post:
+      tags:
+      - Back-Office Administration
+      summary: Assign a role to a user
+      operationId: assign_role_api_v1_admin_users__user_id__roles_post
+      security:
+      - HTTPBearer: []
+      parameters:
+      - name: user_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+          title: User Id
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AssignRoleRequest'
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '401':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Unauthorized
+        '403':
+          description: Missing required permission
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '404':
+          description: Role or user not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '409':
+          description: Role already assigned
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/v1/admin/users/{user_id}/roles/{role_code}:
+    delete:
+      tags:
+      - Back-Office Administration
+      summary: Revoke a role from a user
+      operationId: revoke_role_api_v1_admin_users__user_id__roles__role_code__delete
+      security:
+      - HTTPBearer: []
+      parameters:
+      - name: user_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+          title: User Id
+      - name: role_code
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Role Code
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '401':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Unauthorized
+        '403':
+          description: Missing required permission
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '404':
+          description: Role not currently assigned
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/v1/admin/users/{user_id}/suspend:
+    post:
+      tags:
+      - Back-Office Administration
+      summary: Suspend a user account
+      operationId: suspend_user_api_v1_admin_users__user_id__suspend_post
+      security:
+      - HTTPBearer: []
+      parameters:
+      - name: user_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+          title: User Id
+      - name: reason
+        in: query
+        required: true
+        schema:
+          type: string
+          title: Reason
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '401':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Unauthorized
+        '403':
+          description: Missing required permission
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/v1/admin/users/{user_id}/activate:
+    post:
+      tags:
+      - Back-Office Administration
+      summary: Reactivate a suspended/locked user account
+      operationId: activate_user_api_v1_admin_users__user_id__activate_post
+      security:
+      - HTTPBearer: []
+      parameters:
+      - name: user_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+          title: User Id
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '401':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Unauthorized
+        '403':
+          description: Missing required permission
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/v1/admin/users/{user_id}/sessions/revoke-all:
+    post:
+      tags:
+      - Back-Office Administration
+      summary: Revoke every active session for a user
+      operationId: revoke_all_user_sessions_api_v1_admin_users__user_id__sessions_revoke_all_post
+      security:
+      - HTTPBearer: []
+      parameters:
+      - name: user_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+          title: User Id
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '401':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Unauthorized
+        '403':
+          description: Missing required permission
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/v1/onboarding/me/application:
+    post:
+      tags:
+      - Onboarding — Applicant
+      summary: Start a new onboarding application
+      operationId: create_application_api_v1_onboarding_me_application_post
+      security:
+      - HTTPBearer: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
+              title: Body
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '401':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Unauthorized
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Forbidden
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+    get:
+      tags:
+      - Onboarding — Applicant
+      summary: Get the current user's onboarding application
+      operationId: get_current_application_api_v1_onboarding_me_application_get
+      security:
+      - HTTPBearer: []
+      parameters:
+      - name: applicant_type
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Applicant Type
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '401':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Unauthorized
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Forbidden
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/v1/onboarding/me/application/requirements:
+    get:
+      tags:
+      - Onboarding — Applicant
+      summary: Get required sections and documents
+      operationId: get_requirements_api_v1_onboarding_me_application_requirements_get
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+      security:
+      - HTTPBearer: []
+  /api/v1/onboarding/me/application/completeness:
+    get:
+      tags:
+      - Onboarding — Applicant
+      summary: Get application completeness
+      operationId: get_completeness_api_v1_onboarding_me_application_completeness_get
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+      security:
+      - HTTPBearer: []
+  /api/v1/onboarding/me/application/sections/{section_code}:
+    put:
+      tags:
+      - Onboarding — Applicant
+      summary: Update an application section
+      operationId: update_section_api_v1_onboarding_me_application_sections__section_code__put
+      security:
+      - HTTPBearer: []
+      parameters:
+      - name: section_code
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Section Code
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateSectionRequest'
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '401':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Unauthorized
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Forbidden
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/v1/onboarding/me/application/submit:
+    post:
+      tags:
+      - Onboarding — Applicant
+      summary: Submit the application for review
+      operationId: submit_application_api_v1_onboarding_me_application_submit_post
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SubmitApplicationRequest'
+        required: true
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '422':
+          description: Application incomplete
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+      security:
+      - HTTPBearer: []
+  /api/v1/onboarding/me/application/withdraw:
+    post:
+      tags:
+      - Onboarding — Applicant
+      summary: Withdraw the application
+      operationId: withdraw_application_api_v1_onboarding_me_application_withdraw_post
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/WithdrawApplicationRequest'
+        required: true
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+      security:
+      - HTTPBearer: []
+  /api/v1/onboarding/me/application/information-requests:
+    get:
+      tags:
+      - Onboarding — Applicant
+      summary: List information requests on the application
+      operationId: list_information_requests_api_v1_onboarding_me_application_information_requests_get
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+      security:
+      - HTTPBearer: []
+  /api/v1/onboarding/me/application/information-requests/{request_id}/respond:
+    post:
+      tags:
+      - Onboarding — Applicant
+      summary: Respond to an information request
+      operationId: respond_information_request_api_v1_onboarding_me_application_information_requests__request_id__respond_post
+      security:
+      - HTTPBearer: []
+      parameters:
+      - name: request_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+          title: Request Id
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RespondToInformationRequestRequest'
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '401':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Unauthorized
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Forbidden
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/v1/onboarding/me/application/resubmit:
+    post:
+      tags:
+      - Onboarding — Applicant
+      summary: Resubmit after satisfying an information request
+      operationId: resubmit_application_api_v1_onboarding_me_application_resubmit_post
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ResubmitApplicationRequest'
+        required: true
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+      security:
+      - HTTPBearer: []
+  /api/v1/onboarding/me/application/documents/upload-request:
+    post:
+      tags:
+      - Onboarding — Applicant
+      summary: Request a document upload URL
+      operationId: create_upload_request_api_v1_onboarding_me_application_documents_upload_request_post
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateUploadRequestRequest'
+        required: true
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+      security:
+      - HTTPBearer: []
+  /api/v1/onboarding/me/application/documents/{application_document_id}/confirm:
+    post:
+      tags:
+      - Onboarding — Applicant
+      summary: Confirm a document upload
+      operationId: confirm_upload_api_v1_onboarding_me_application_documents__application_document_id__confirm_post
+      security:
+      - HTTPBearer: []
+      parameters:
+      - name: application_document_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+          title: Application Document Id
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ConfirmUploadRequest'
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '401':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Unauthorized
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Forbidden
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/v1/onboarding/me/application/documents:
+    get:
+      tags:
+      - Onboarding — Applicant
+      summary: List application documents
+      operationId: list_documents_api_v1_onboarding_me_application_documents_get
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+      security:
+      - HTTPBearer: []
+  /api/v1/onboarding/me/application/documents/{application_document_id}/replace:
+    post:
+      tags:
+      - Onboarding — Applicant
+      summary: Replace a document
+      operationId: replace_document_api_v1_onboarding_me_application_documents__application_document_id__replace_post
+      security:
+      - HTTPBearer: []
+      parameters:
+      - name: application_document_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+          title: Application Document Id
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateUploadRequestRequest'
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '401':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Unauthorized
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Forbidden
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/v1/onboarding/me/application/documents/{application_document_id}:
+    delete:
+      tags:
+      - Onboarding — Applicant
+      summary: Delete a document
+      operationId: delete_document_api_v1_onboarding_me_application_documents__application_document_id__delete
+      security:
+      - HTTPBearer: []
+      parameters:
+      - name: application_document_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+          title: Application Document Id
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '401':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Unauthorized
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Forbidden
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/v1/back-office/onboarding/applications:
+    get:
+      tags:
+      - Onboarding — Back Office
+      summary: Search onboarding applications
+      operationId: search_applications_api_v1_back_office_onboarding_applications_get
+      security:
+      - HTTPBearer: []
+      parameters:
+      - name: applicant_type
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Applicant Type
+      - name: status
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Status
+      - name: application_number
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Application Number
+      - name: assigned_reviewer_id
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+            format: uuid
+          - type: 'null'
+          title: Assigned Reviewer Id
+      - name: unassigned
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: boolean
+          - type: 'null'
+          title: Unassigned
+      - name: submitted_from
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+            format: date
+          - type: 'null'
+          title: Submitted From
+      - name: submitted_to
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+            format: date
+          - type: 'null'
+          title: Submitted To
+      - name: page
+        in: query
+        required: false
+        schema:
+          type: integer
+          minimum: 0
+          default: 0
+          title: Page
+      - name: size
+        in: query
+        required: false
+        schema:
+          type: integer
+          maximum: 100
+          minimum: 1
+          default: 20
+          title: Size
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '401':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Unauthorized
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Forbidden
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/v1/back-office/onboarding/applications/{application_id}:
+    get:
+      tags:
+      - Onboarding — Back Office
+      summary: Get application detail
+      operationId: get_application_detail_api_v1_back_office_onboarding_applications__application_id__get
+      security:
+      - HTTPBearer: []
+      parameters:
+      - name: application_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+          title: Application Id
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '401':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Unauthorized
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Forbidden
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/v1/back-office/onboarding/applications/{application_id}/assign:
+    post:
+      tags:
+      - Onboarding — Back Office
+      summary: Assign an application to a reviewer
+      operationId: assign_application_api_v1_back_office_onboarding_applications__application_id__assign_post
+      security:
+      - HTTPBearer: []
+      parameters:
+      - name: application_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+          title: Application Id
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AssignApplicationRequest'
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '401':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Unauthorized
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Forbidden
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/v1/back-office/onboarding/applications/{application_id}/claim:
+    post:
+      tags:
+      - Onboarding — Back Office
+      summary: Claim an unassigned application
+      operationId: claim_application_api_v1_back_office_onboarding_applications__application_id__claim_post
+      security:
+      - HTTPBearer: []
+      parameters:
+      - name: application_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+          title: Application Id
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '401':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Unauthorized
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Forbidden
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/v1/back-office/onboarding/applications/{application_id}/reassign:
+    post:
+      tags:
+      - Onboarding — Back Office
+      summary: Reassign an application to a different reviewer
+      operationId: reassign_application_api_v1_back_office_onboarding_applications__application_id__reassign_post
+      security:
+      - HTTPBearer: []
+      parameters:
+      - name: application_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+          title: Application Id
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ReassignApplicationRequest'
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '401':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Unauthorized
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Forbidden
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/v1/back-office/onboarding/applications/{application_id}/release:
+    post:
+      tags:
+      - Onboarding — Back Office
+      summary: Release an application back to the unassigned queue
+      operationId: release_application_api_v1_back_office_onboarding_applications__application_id__release_post
+      security:
+      - HTTPBearer: []
+      parameters:
+      - name: application_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+          title: Application Id
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ReleaseApplicationRequest'
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '401':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Unauthorized
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Forbidden
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/v1/back-office/onboarding/applications/{application_id}/risk-flags:
+    post:
+      tags:
+      - Onboarding — Back Office
+      summary: Raise a risk flag
+      operationId: raise_risk_flag_api_v1_back_office_onboarding_applications__application_id__risk_flags_post
+      security:
+      - HTTPBearer: []
+      parameters:
+      - name: application_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+          title: Application Id
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RaiseRiskFlagRequest'
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '401':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Unauthorized
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Forbidden
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/v1/back-office/onboarding/applications/{application_id}/risk-flags/{flag_id}/resolve:
+    post:
+      tags:
+      - Onboarding — Back Office
+      summary: Resolve a risk flag
+      operationId: resolve_risk_flag_api_v1_back_office_onboarding_applications__application_id__risk_flags__flag_id__resolve_post
+      security:
+      - HTTPBearer: []
+      parameters:
+      - name: application_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+          title: Application Id
+      - name: flag_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+          title: Flag Id
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ResolveRiskFlagRequest'
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '401':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Unauthorized
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Forbidden
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/v1/back-office/onboarding/applications/{application_id}/notes:
+    post:
+      tags:
+      - Onboarding — Back Office
+      summary: Add an internal note to an application
+      operationId: add_note_api_v1_back_office_onboarding_applications__application_id__notes_post
+      security:
+      - HTTPBearer: []
+      parameters:
+      - name: application_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+          title: Application Id
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AddNoteRequest'
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '401':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Unauthorized
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Forbidden
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/v1/back-office/onboarding/applications/{application_id}/reviews/start:
+    post:
+      tags:
+      - Onboarding — Review
+      summary: Start a review
+      operationId: start_review_api_v1_back_office_onboarding_applications__application_id__reviews_start_post
+      security:
+      - HTTPBearer: []
+      parameters:
+      - name: application_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+          title: Application Id
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/StartReviewRequest'
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '401':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Unauthorized
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Forbidden
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/v1/back-office/onboarding/applications/{application_id}/reviews/{review_id}:
+    get:
+      tags:
+      - Onboarding — Review
+      summary: Get a review with its checklist
+      operationId: get_review_api_v1_back_office_onboarding_applications__application_id__reviews__review_id__get
+      security:
+      - HTTPBearer: []
+      parameters:
+      - name: application_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+          title: Application Id
+      - name: review_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+          title: Review Id
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '401':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Unauthorized
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Forbidden
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/v1/back-office/onboarding/applications/{application_id}/reviews/{review_id}/checklist-items/{item_id}:
+    patch:
+      tags:
+      - Onboarding — Review
+      summary: Update a checklist item
+      operationId: update_checklist_item_api_v1_back_office_onboarding_applications__application_id__reviews__review_id__checklist_items__item_id__patch
+      security:
+      - HTTPBearer: []
+      parameters:
+      - name: application_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+          title: Application Id
+      - name: review_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+          title: Review Id
+      - name: item_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+          title: Item Id
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateChecklistItemRequest'
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '401':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Unauthorized
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Forbidden
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/v1/back-office/onboarding/applications/{application_id}/documents/{application_document_id}/review:
+    post:
+      tags:
+      - Onboarding — Review
+      summary: Review an application document
+      operationId: review_document_api_v1_back_office_onboarding_applications__application_id__documents__application_document_id__review_post
+      security:
+      - HTTPBearer: []
+      parameters:
+      - name: application_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+          title: Application Id
+      - name: application_document_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+          title: Application Document Id
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ReviewDocumentRequest'
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '401':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Unauthorized
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Forbidden
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/v1/back-office/onboarding/applications/{application_id}/reviews/{review_id}/complete:
+    post:
+      tags:
+      - Onboarding — Review
+      summary: Complete a review with a recommendation
+      operationId: complete_review_api_v1_back_office_onboarding_applications__application_id__reviews__review_id__complete_post
+      security:
+      - HTTPBearer: []
+      parameters:
+      - name: application_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+          title: Application Id
+      - name: review_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+          title: Review Id
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CompleteReviewRequest'
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '401':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Unauthorized
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Forbidden
+        '409':
+          description: Mandatory checklist items unresolved
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/v1/back-office/onboarding/applications/{application_id}/verification-checks:
+    post:
+      tags:
+      - Onboarding — Decisions
+      summary: Create a verification check
+      operationId: create_verification_check_api_v1_back_office_onboarding_applications__application_id__verification_checks_post
+      security:
+      - HTTPBearer: []
+      parameters:
+      - name: application_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+          title: Application Id
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateVerificationCheckRequest'
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '401':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Unauthorized
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Forbidden
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/v1/back-office/onboarding/applications/{application_id}/verification-checks/{check_id}/complete:
+    post:
+      tags:
+      - Onboarding — Decisions
+      summary: Complete a verification check
+      operationId: complete_verification_check_api_v1_back_office_onboarding_applications__application_id__verification_checks__check_id__complete_post
+      security:
+      - HTTPBearer: []
+      parameters:
+      - name: application_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+          title: Application Id
+      - name: check_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+          title: Check Id
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CompleteVerificationCheckRequest'
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '401':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Unauthorized
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Forbidden
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/v1/back-office/onboarding/applications/{application_id}/information-requests:
+    post:
+      tags:
+      - Onboarding — Decisions
+      summary: Create an information request
+      operationId: create_information_request_api_v1_back_office_onboarding_applications__application_id__information_requests_post
+      security:
+      - HTTPBearer: []
+      parameters:
+      - name: application_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+          title: Application Id
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateInformationRequestRequest'
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '401':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Unauthorized
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Forbidden
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/v1/back-office/onboarding/applications/{application_id}/approve:
+    post:
+      tags:
+      - Onboarding — Decisions
+      summary: Approve an application
+      operationId: approve_application_api_v1_back_office_onboarding_applications__application_id__approve_post
+      security:
+      - HTTPBearer: []
+      parameters:
+      - name: application_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+          title: Application Id
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ApproveApplicationRequest'
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '401':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Unauthorized
+        '403':
+          description: Maker-checker violation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '409':
+          description: Approval preconditions not met
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/v1/back-office/onboarding/applications/{application_id}/conditionally-approve:
+    post:
+      tags:
+      - Onboarding — Decisions
+      summary: Conditionally approve an application
+      operationId: conditionally_approve_application_api_v1_back_office_onboarding_applications__application_id__conditionally_approve_post
+      security:
+      - HTTPBearer: []
+      parameters:
+      - name: application_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+          title: Application Id
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ConditionallyApproveApplicationRequest'
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '401':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Unauthorized
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Forbidden
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/v1/back-office/onboarding/applications/{application_id}/reject:
+    post:
+      tags:
+      - Onboarding — Decisions
+      summary: Reject an application
+      operationId: reject_application_api_v1_back_office_onboarding_applications__application_id__reject_post
+      security:
+      - HTTPBearer: []
+      parameters:
+      - name: application_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+          title: Application Id
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RejectApplicationRequest'
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '401':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Unauthorized
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Forbidden
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/v1/back-office/onboarding/applications/{application_id}/suspend:
+    post:
+      tags:
+      - Onboarding — Decisions
+      summary: Suspend an approved applicant/provider
+      operationId: suspend_application_api_v1_back_office_onboarding_applications__application_id__suspend_post
+      security:
+      - HTTPBearer: []
+      parameters:
+      - name: application_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+          title: Application Id
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SuspendApplicationRequest'
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '401':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Unauthorized
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          description: Forbidden
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /health:
+    get:
+      tags:
+      - System
+      summary: Liveness check
+      operationId: health_health_get
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                additionalProperties: true
+                type: object
+                title: Response Health Health Get
+  /health/ready:
+    get:
+      tags:
+      - System
+      summary: Readiness check (verifies DB connectivity)
+      operationId: health_ready_health_ready_get
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                additionalProperties: true
+                type: object
+                title: Response Health Ready Health Ready Get
+components:
+  schemas:
+    AddNoteRequest:
+      properties:
+        content:
+          type: string
+          title: Content
+      type: object
+      required:
+      - content
+      title: AddNoteRequest
+    ApprovalConditionIn:
+      properties:
+        code:
+          type: string
+          title: Code
+        description:
+          type: string
+          title: Description
+        dueDate:
+          anyOf:
+          - type: string
+            format: date
+          - type: 'null'
+          title: Duedate
+        blockingAfterDueDate:
+          type: boolean
+          title: Blockingafterduedate
+          default: false
+      type: object
+      required:
+      - code
+      - description
+      title: ApprovalConditionIn
+    ApproveApplicationRequest:
+      properties:
+        decisionComments:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Decisioncomments
+        approvalValidUntil:
+          anyOf:
+          - type: string
+            format: date-time
+          - type: 'null'
+          title: Approvalvaliduntil
+        conditions:
+          items:
+            $ref: '#/components/schemas/ApprovalConditionIn'
+          type: array
+          title: Conditions
+      type: object
+      title: ApproveApplicationRequest
+    AssignApplicationRequest:
+      properties:
+        reviewerId:
+          type: string
+          format: uuid
+          title: Reviewerid
+        assignmentType:
+          type: string
+          title: Assignmenttype
+          default: PRIMARY_REVIEW
+        reason:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Reason
+      type: object
+      required:
+      - reviewerId
+      title: AssignApplicationRequest
+    AssignRoleRequest:
+      properties:
+        roleCode:
+          type: string
+          title: Rolecode
+        expiresAt:
+          anyOf:
+          - type: string
+            format: date-time
+          - type: 'null'
+          title: Expiresat
+        reason:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Reason
+      type: object
+      required:
+      - roleCode
+      title: AssignRoleRequest
+    ChangeEmailRequest:
+      properties:
+        newEmail:
+          type: string
+          format: email
+          title: Newemail
+        currentPassword:
+          type: string
+          title: Currentpassword
+      type: object
+      required:
+      - newEmail
+      - currentPassword
+      title: ChangeEmailRequest
+    ChangeMobileRequest:
+      properties:
+        newMobileNumber:
+          type: string
+          title: Newmobilenumber
+        currentPassword:
+          type: string
+          title: Currentpassword
+      type: object
+      required:
+      - newMobileNumber
+      - currentPassword
+      title: ChangeMobileRequest
+    ChangePasswordRequest:
+      properties:
+        currentPassword:
+          type: string
+          title: Currentpassword
+        newPassword:
+          type: string
+          title: Newpassword
+      type: object
+      required:
+      - currentPassword
+      - newPassword
+      title: ChangePasswordRequest
+    CompleteReviewRequest:
+      properties:
+        recommendation:
+          type: string
+          title: Recommendation
+        comments:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Comments
+      type: object
+      required:
+      - recommendation
+      title: CompleteReviewRequest
+    CompleteVerificationCheckRequest:
+      properties:
+        result:
+          type: string
+          title: Result
+        externalReference:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Externalreference
+        verifiedData:
+          additionalProperties: true
+          type: object
+          title: Verifieddata
+        comments:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Comments
+      type: object
+      required:
+      - result
+      title: CompleteVerificationCheckRequest
+    ConditionallyApproveApplicationRequest:
+      properties:
+        decisionComments:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Decisioncomments
+        approvalValidUntil:
+          anyOf:
+          - type: string
+            format: date-time
+          - type: 'null'
+          title: Approvalvaliduntil
+        conditions:
+          items:
+            $ref: '#/components/schemas/ApprovalConditionIn'
+          type: array
+          title: Conditions
+      type: object
+      title: ConditionallyApproveApplicationRequest
+    ConfirmAuthenticatorRequest:
+      properties:
+        enrolmentId:
+          type: string
+          format: uuid
+          title: Enrolmentid
+        code:
+          type: string
+          title: Code
+      type: object
+      required:
+      - enrolmentId
+      - code
+      title: ConfirmAuthenticatorRequest
+    ConfirmAuthenticatorResponse:
+      properties:
+        methodId:
+          type: string
+          format: uuid
+          title: Methodid
+        recoveryCodes:
+          items:
+            type: string
+          type: array
+          title: Recoverycodes
+      type: object
+      required:
+      - methodId
+      - recoveryCodes
+      title: ConfirmAuthenticatorResponse
+    ConfirmEmailChangeRequest:
+      properties:
+        token:
+          type: string
+          title: Token
+      type: object
+      required:
+      - token
+      title: ConfirmEmailChangeRequest
+    ConfirmMobileChangeRequest:
+      properties:
+        mobileNumber:
+          type: string
+          title: Mobilenumber
+        code:
+          type: string
+          title: Code
+      type: object
+      required:
+      - mobileNumber
+      - code
+      title: ConfirmMobileChangeRequest
+    ConfirmUploadRequest:
+      properties:
+        checksum:
+          type: string
+          title: Checksum
+        documentNumber:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Documentnumber
+        issuingAuthority:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Issuingauthority
+        issuingCountry:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Issuingcountry
+        issueDate:
+          anyOf:
+          - type: string
+            format: date
+          - type: 'null'
+          title: Issuedate
+        expiryDate:
+          anyOf:
+          - type: string
+            format: date
+          - type: 'null'
+          title: Expirydate
+      type: object
+      required:
+      - checksum
+      title: ConfirmUploadRequest
+    CreateInformationRequestRequest:
+      properties:
+        reasonCode:
+          type: string
+          title: Reasoncode
+        message:
+          type: string
+          title: Message
+        responseDueDate:
+          anyOf:
+          - type: string
+            format: date
+          - type: 'null'
+          title: Responseduedate
+        items:
+          items:
+            $ref: '#/components/schemas/InformationRequestItemIn'
+          type: array
+          title: Items
+      type: object
+      required:
+      - reasonCode
+      - message
+      title: CreateInformationRequestRequest
+    CreateUploadRequestRequest:
+      properties:
+        documentType:
+          type: string
+          title: Documenttype
+        fileName:
+          type: string
+          title: Filename
+        mimeType:
+          type: string
+          title: Mimetype
+        fileSize:
+          type: integer
+          title: Filesize
+      type: object
+      required:
+      - documentType
+      - fileName
+      - mimeType
+      - fileSize
+      title: CreateUploadRequestRequest
+    CreateVerificationCheckRequest:
+      properties:
+        checkType:
+          type: string
+          title: Checktype
+        provider:
+          type: string
+          title: Provider
+        subjectReference:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Subjectreference
+      type: object
+      required:
+      - checkType
+      - provider
+      title: CreateVerificationCheckRequest
+    DeactivateAccountRequest:
+      properties:
+        currentPassword:
+          type: string
+          title: Currentpassword
+      type: object
+      required:
+      - currentPassword
+      title: DeactivateAccountRequest
+    DeviceInfoIn:
+      properties:
+        deviceId:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Deviceid
+        deviceName:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Devicename
+        platform:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Platform
+          description: WEB | IOS | ANDROID | OTHER
+        appVersion:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Appversion
+        rememberMe:
+          type: boolean
+          title: Rememberme
+          default: false
+      type: object
+      title: DeviceInfoIn
+    DisableMfaRequest:
+      properties:
+        currentPassword:
+          type: string
+          title: Currentpassword
+      type: object
+      required:
+      - currentPassword
+      title: DisableMfaRequest
+    DoctorRegisterRequest:
+      properties:
+        email:
+          type: string
+          format: email
+          title: Email
+        password:
+          type: string
+          title: Password
+        mobileNumber:
+          type: string
+          title: Mobilenumber
+        firstName:
+          type: string
+          maxLength: 150
+          minLength: 1
+          title: Firstname
+        lastName:
+          type: string
+          maxLength: 150
+          minLength: 1
+          title: Lastname
+        termsAccepted:
+          type: boolean
+          title: Termsaccepted
+        privacyPolicyAccepted:
+          type: boolean
+          title: Privacypolicyaccepted
+        professionalDataConsentAccepted:
+          type: boolean
+          title: Professionaldataconsentaccepted
+      type: object
+      required:
+      - email
+      - password
+      - mobileNumber
+      - firstName
+      - lastName
+      - termsAccepted
+      - privacyPolicyAccepted
+      - professionalDataConsentAccepted
+      title: DoctorRegisterRequest
+    EnrolAuthenticatorResponse:
+      properties:
+        enrolmentId:
+          type: string
+          format: uuid
+          title: Enrolmentid
+        secret:
+          type: string
+          title: Secret
+        otpauthUri:
+          type: string
+          title: Otpauthuri
+        expiresAt:
+          type: string
+          format: date-time
+          title: Expiresat
+      type: object
+      required:
+      - enrolmentId
+      - secret
+      - otpauthUri
+      - expiresAt
+      title: EnrolAuthenticatorResponse
+    ErrorDetail:
+      properties:
+        code:
+          type: string
+          title: Code
+        message:
+          type: string
+          title: Message
+        fields:
+          anyOf:
+          - items:
+              additionalProperties:
+                type: string
+              type: object
+            type: array
+          - type: 'null'
+          title: Fields
+      type: object
+      required:
+      - code
+      - message
+      title: ErrorDetail
+    ErrorEnvelope:
+      properties:
+        success:
+          type: boolean
+          title: Success
+          default: false
+        error:
+          $ref: '#/components/schemas/ErrorDetail'
+      type: object
+      required:
+      - error
+      title: ErrorEnvelope
+    ForgotPasswordRequest:
+      properties:
+        email:
+          type: string
+          format: email
+          title: Email
+      type: object
+      required:
+      - email
+      title: ForgotPasswordRequest
+    HTTPValidationError:
+      properties:
+        detail:
+          items:
+            $ref: '#/components/schemas/ValidationError'
+          type: array
+          title: Detail
+      type: object
+      title: HTTPValidationError
+    InformationRequestItemIn:
+      properties:
+        itemType:
+          type: string
+          title: Itemtype
+        documentType:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Documenttype
+        instruction:
+          type: string
+          title: Instruction
+      type: object
+      required:
+      - itemType
+      - instruction
+      title: InformationRequestItemIn
+    LinkSocialProviderRequest:
+      properties:
+        provider:
+          type: string
+          title: Provider
+        identityToken:
+          type: string
+          title: Identitytoken
+        nonce:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Nonce
+      type: object
+      required:
+      - provider
+      - identityToken
+      title: LinkSocialProviderRequest
+    LoginRequest:
+      properties:
+        email:
+          type: string
+          format: email
+          title: Email
+        password:
+          type: string
+          title: Password
+        device:
+          $ref: '#/components/schemas/DeviceInfoIn'
+      type: object
+      required:
+      - email
+      - password
+      title: LoginRequest
+    PatientRegisterRequest:
+      properties:
+        email:
+          type: string
+          format: email
+          title: Email
+        password:
+          type: string
+          title: Password
+        mobileNumber:
+          type: string
+          title: Mobilenumber
+        firstName:
+          type: string
+          maxLength: 150
+          minLength: 1
+          title: Firstname
+        lastName:
+          type: string
+          maxLength: 150
+          minLength: 1
+          title: Lastname
+        dateOfBirth:
+          type: string
+          format: date
+          title: Dateofbirth
+        termsAccepted:
+          type: boolean
+          title: Termsaccepted
+        privacyPolicyAccepted:
+          type: boolean
+          title: Privacypolicyaccepted
+        healthDataConsentAccepted:
+          type: boolean
+          title: Healthdataconsentaccepted
+      type: object
+      required:
+      - email
+      - password
+      - mobileNumber
+      - firstName
+      - lastName
+      - dateOfBirth
+      - termsAccepted
+      - privacyPolicyAccepted
+      - healthDataConsentAccepted
+      title: PatientRegisterRequest
+    RaiseRiskFlagRequest:
+      properties:
+        flagCode:
+          type: string
+          title: Flagcode
+        riskLevel:
+          type: string
+          title: Risklevel
+        description:
+          type: string
+          title: Description
+      type: object
+      required:
+      - flagCode
+      - riskLevel
+      - description
+      title: RaiseRiskFlagRequest
+    ReassignApplicationRequest:
+      properties:
+        newReviewerId:
+          type: string
+          format: uuid
+          title: Newreviewerid
+        reason:
+          type: string
+          title: Reason
+      type: object
+      required:
+      - newReviewerId
+      - reason
+      title: ReassignApplicationRequest
+    RefreshTokenRequest:
+      properties:
+        refreshToken:
+          type: string
+          title: Refreshtoken
+        device:
+          $ref: '#/components/schemas/DeviceInfoIn'
+      type: object
+      required:
+      - refreshToken
+      title: RefreshTokenRequest
+    RegisterResponse:
+      properties:
+        userId:
+          type: string
+          format: uuid
+          title: Userid
+        accountStatus:
+          type: string
+          title: Accountstatus
+        emailVerificationRequired:
+          type: boolean
+          title: Emailverificationrequired
+        mobileVerificationRequired:
+          type: boolean
+          title: Mobileverificationrequired
+      type: object
+      required:
+      - userId
+      - accountStatus
+      - emailVerificationRequired
+      - mobileVerificationRequired
+      title: RegisterResponse
+    RejectApplicationRequest:
+      properties:
+        reasonCode:
+          type: string
+          title: Reasoncode
+        decisionComments:
+          type: string
+          title: Decisioncomments
+        allowNewApplication:
+          type: boolean
+          title: Allownewapplication
+          default: true
+        coolingOffPeriodDays:
+          anyOf:
+          - type: integer
+          - type: 'null'
+          title: Coolingoffperioddays
+      type: object
+      required:
+      - reasonCode
+      - decisionComments
+      title: RejectApplicationRequest
+    ReleaseApplicationRequest:
+      properties:
+        reason:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Reason
+      type: object
+      title: ReleaseApplicationRequest
+    ResendEmailVerificationRequest:
+      properties:
+        email:
+          type: string
+          format: email
+          title: Email
+      type: object
+      required:
+      - email
+      title: ResendEmailVerificationRequest
+    ResetPasswordRequest:
+      properties:
+        token:
+          type: string
+          title: Token
+        newPassword:
+          type: string
+          title: Newpassword
+      type: object
+      required:
+      - token
+      - newPassword
+      title: ResetPasswordRequest
+    ResolveRiskFlagRequest:
+      properties:
+        status:
+          type: string
+          title: Status
+        resolutionComments:
+          type: string
+          title: Resolutioncomments
+        evidenceReference:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Evidencereference
+      type: object
+      required:
+      - status
+      - resolutionComments
+      title: ResolveRiskFlagRequest
+    RespondToInformationRequestRequest:
+      properties:
+        message:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Message
+        documentIds:
+          items:
+            type: string
+            format: uuid
+          type: array
+          title: Documentids
+        updatedFields:
+          items:
+            type: string
+          type: array
+          title: Updatedfields
+      type: object
+      title: RespondToInformationRequestRequest
+    ResubmitApplicationRequest:
+      properties:
+        informationRequestId:
+          type: string
+          format: uuid
+          title: Informationrequestid
+        informationAccuracyConfirmed:
+          type: boolean
+          title: Informationaccuracyconfirmed
+      type: object
+      required:
+      - informationRequestId
+      - informationAccuracyConfirmed
+      title: ResubmitApplicationRequest
+    ReviewDocumentRequest:
+      properties:
+        decision:
+          type: string
+          title: Decision
+        comments:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Comments
+        verificationMethod:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Verificationmethod
+        verifiedDocumentNumber:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Verifieddocumentnumber
+        verifiedExpiryDate:
+          anyOf:
+          - type: string
+            format: date
+          - type: 'null'
+          title: Verifiedexpirydate
+      type: object
+      required:
+      - decision
+      title: ReviewDocumentRequest
+    SendOtpRequest:
+      properties:
+        mobileNumber:
+          type: string
+          title: Mobilenumber
+        purpose:
+          type: string
+          title: Purpose
+          default: MOBILE_VERIFICATION
+      type: object
+      required:
+      - mobileNumber
+      title: SendOtpRequest
+    SessionOut:
+      properties:
+        id:
+          type: string
+          format: uuid
+          title: Id
+        deviceName:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Devicename
+        platform:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Platform
+        ipAddressMasked:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Ipaddressmasked
+        createdAt:
+          type: string
+          format: date-time
+          title: Createdat
+        lastUsedAt:
+          anyOf:
+          - type: string
+            format: date-time
+          - type: 'null'
+          title: Lastusedat
+        current:
+          type: boolean
+          title: Current
+      type: object
+      required:
+      - id
+      - deviceName
+      - platform
+      - ipAddressMasked
+      - createdAt
+      - lastUsedAt
+      - current
+      title: SessionOut
+    SocialLoginRequest:
+      properties:
+        provider:
+          type: string
+          title: Provider
+          description: GOOGLE | APPLE | FACEBOOK
+        identityToken:
+          type: string
+          title: Identitytoken
+        requestedAccountType:
+          type: string
+          title: Requestedaccounttype
+          default: PATIENT
+        termsAccepted:
+          type: boolean
+          title: Termsaccepted
+          default: true
+        privacyPolicyAccepted:
+          type: boolean
+          title: Privacypolicyaccepted
+          default: true
+        nonce:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Nonce
+        device:
+          $ref: '#/components/schemas/DeviceInfoIn'
+      type: object
+      required:
+      - provider
+      - identityToken
+      title: SocialLoginRequest
+    StartReviewRequest:
+      properties:
+        reviewType:
+          type: string
+          title: Reviewtype
+      type: object
+      required:
+      - reviewType
+      title: StartReviewRequest
+    SubmitApplicationRequest:
+      properties:
+        declarationAccepted:
+          type: boolean
+          title: Declarationaccepted
+        informationAccuracyConfirmed:
+          type: boolean
+          title: Informationaccuracyconfirmed
+        verificationConsentAccepted:
+          type: boolean
+          title: Verificationconsentaccepted
+        submissionVersion:
+          type: integer
+          title: Submissionversion
+      type: object
+      required:
+      - declarationAccepted
+      - informationAccuracyConfirmed
+      - verificationConsentAccepted
+      - submissionVersion
+      title: SubmitApplicationRequest
+    SuccessEnvelope_ConfirmAuthenticatorResponse_:
+      properties:
+        success:
+          type: boolean
+          title: Success
+          default: true
+        data:
+          $ref: '#/components/schemas/ConfirmAuthenticatorResponse'
+      type: object
+      required:
+      - data
+      title: SuccessEnvelope[ConfirmAuthenticatorResponse]
+    SuccessEnvelope_EnrolAuthenticatorResponse_:
+      properties:
+        success:
+          type: boolean
+          title: Success
+          default: true
+        data:
+          $ref: '#/components/schemas/EnrolAuthenticatorResponse'
+      type: object
+      required:
+      - data
+      title: SuccessEnvelope[EnrolAuthenticatorResponse]
+    SuccessEnvelope_RegisterResponse_:
+      properties:
+        success:
+          type: boolean
+          title: Success
+          default: true
+        data:
+          $ref: '#/components/schemas/RegisterResponse'
+      type: object
+      required:
+      - data
+      title: SuccessEnvelope[RegisterResponse]
+    SuccessEnvelope_TokenPair_:
+      properties:
+        success:
+          type: boolean
+          title: Success
+          default: true
+        data:
+          $ref: '#/components/schemas/TokenPair'
+      type: object
+      required:
+      - data
+      title: SuccessEnvelope[TokenPair]
+    SuccessEnvelope_UserProfileOut_:
+      properties:
+        success:
+          type: boolean
+          title: Success
+          default: true
+        data:
+          $ref: '#/components/schemas/UserProfileOut'
+      type: object
+      required:
+      - data
+      title: SuccessEnvelope[UserProfileOut]
+    SuccessEnvelope_list_SessionOut__:
+      properties:
+        success:
+          type: boolean
+          title: Success
+          default: true
+        data:
+          items:
+            $ref: '#/components/schemas/SessionOut'
+          type: array
+          title: Data
+      type: object
+      required:
+      - data
+      title: SuccessEnvelope[list[SessionOut]]
+    SuspendApplicationRequest:
+      properties:
+        reasonCode:
+          type: string
+          title: Reasoncode
+        comments:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Comments
+        effectiveImmediately:
+          type: boolean
+          title: Effectiveimmediately
+          default: true
+      type: object
+      required:
+      - reasonCode
+      title: SuspendApplicationRequest
+    TokenPair:
+      properties:
+        accessToken:
+          type: string
+          title: Accesstoken
+        refreshToken:
+          type: string
+          title: Refreshtoken
+        tokenType:
+          type: string
+          title: Tokentype
+          default: Bearer
+        expiresIn:
+          type: integer
+          title: Expiresin
+      type: object
+      required:
+      - accessToken
+      - refreshToken
+      - expiresIn
+      title: TokenPair
+    UpdateChecklistItemRequest:
+      properties:
+        result:
+          type: string
+          title: Result
+        comments:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Comments
+        evidenceReference:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Evidencereference
+      type: object
+      required:
+      - result
+      title: UpdateChecklistItemRequest
+    UpdateCurrentUserRequest:
+      properties:
+        preferredLanguage:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Preferredlanguage
+        timezone:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Timezone
+      type: object
+      title: UpdateCurrentUserRequest
+    UpdateSectionRequest:
+      properties: {}
+      additionalProperties: true
+      type: object
+      title: UpdateSectionRequest
+      description: 'The section body genuinely varies by applicant type and section
+
+        (spec: "The section body depends on the applicant type and section"),
+
+        so it''s accepted as an open field bag here and validated by
+
+        `application_service.SECTION_VALIDATORS` rather than a fixed schema
+
+        per section — see that module.'
+    UserProfileOut:
+      properties:
+        id:
+          type: string
+          format: uuid
+          title: Id
+        email:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Email
+        mobileNumber:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Mobilenumber
+        emailVerified:
+          type: boolean
+          title: Emailverified
+        mobileVerified:
+          type: boolean
+          title: Mobileverified
+        accountStatus:
+          type: string
+          title: Accountstatus
+        preferredLanguage:
+          type: string
+          title: Preferredlanguage
+        timezone:
+          type: string
+          title: Timezone
+        roles:
+          items:
+            type: string
+          type: array
+          title: Roles
+        createdAt:
+          type: string
+          format: date-time
+          title: Createdat
+        lastLoginAt:
+          anyOf:
+          - type: string
+            format: date-time
+          - type: 'null'
+          title: Lastloginat
+      type: object
+      required:
+      - id
+      - email
+      - mobileNumber
+      - emailVerified
+      - mobileVerified
+      - accountStatus
+      - preferredLanguage
+      - timezone
+      - roles
+      - createdAt
+      - lastLoginAt
+      title: UserProfileOut
+    ValidationError:
+      properties:
+        loc:
+          items:
+            anyOf:
+            - type: string
+            - type: integer
+          type: array
+          title: Location
+        msg:
+          type: string
+          title: Message
+        type:
+          type: string
+          title: Error Type
+        input:
+          title: Input
+        ctx:
+          type: object
+          title: Context
+      type: object
+      required:
+      - loc
+      - msg
+      - type
+      title: ValidationError
+    VerifyEmailRequest:
+      properties:
+        token:
+          type: string
+          title: Token
+      type: object
+      required:
+      - token
+      title: VerifyEmailRequest
+    VerifyMfaRequest:
+      properties:
+        challengeId:
+          type: string
+          format: uuid
+          title: Challengeid
+        method:
+          type: string
+          title: Method
+        code:
+          type: string
+          title: Code
+      type: object
+      required:
+      - challengeId
+      - method
+      - code
+      title: VerifyMfaRequest
+    VerifyOtpRequest:
+      properties:
+        mobileNumber:
+          type: string
+          title: Mobilenumber
+        code:
+          type: string
+          title: Code
+        purpose:
+          type: string
+          title: Purpose
+          default: MOBILE_VERIFICATION
+      type: object
+      required:
+      - mobileNumber
+      - code
+      title: VerifyOtpRequest
+    WithdrawApplicationRequest:
+      properties:
+        reason:
+          type: string
+          title: Reason
+      type: object
+      required:
+      - reason
+      title: WithdrawApplicationRequest
+  securitySchemes:
+    HTTPBearer:
+      type: http
+      description: Access token issued by /auth/login or /auth/refresh
+      scheme: bearer
+tags:
+- name: Authentication
+  description: Registration, login, token refresh, logout
+- name: Verification
+  description: Email and mobile verification
+- name: Password
+  description: Password change, forgot, reset
+- name: Multi-Factor Authentication
+  description: TOTP enrolment and login challenges
+- name: Sessions
+  description: Device/session listing and revocation
+- name: Social Login
+  description: Google / Apple / Facebook sign-in
+- name: Users
+  description: Current user profile management
+- name: Back-Office Administration
+  description: Role assignment, suspension, activation
+- name: Onboarding — Applicant
+  description: Application lifecycle, sections, documents
+- name: Onboarding — Back Office
+  description: Search, assignment, risk flags, notes
+- name: Onboarding — Review
+  description: Review lifecycle and document review
+- name: Onboarding — Decisions
+  description: Verification checks, information requests, approve/reject/suspend
+- name: System
+  description: Health checks

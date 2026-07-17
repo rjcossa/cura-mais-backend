@@ -1,0 +1,62 @@
+[project]
+name = "health-platform-identity"
+version = "0.1.0"
+description = "Identity module for the Health Platform & Digital Medicine Marketplace"
+readme = "README.md"
+requires-python = ">=3.12"
+license = { text = "Proprietary" }
+
+# Target runtime is Python 3.14 (latest stable line as of writing).
+# The codebase avoids any syntax exclusive to 3.14 so it also runs on 3.12+
+# for local development flexibility (see README for details).
+
+dependencies = [
+    "fastapi>=0.139.0",
+    "uvicorn[standard]>=0.51.0",
+    "sqlalchemy[asyncio]>=2.0.51",
+    "asyncpg>=0.31.0",
+    "alembic>=1.18.5",
+    "pydantic>=2.13.4",
+    "pydantic-settings>=2.14.2",
+    "email-validator>=2.3.0",
+    "pyjwt[crypto]>=2.13.0",
+    "argon2-cffi>=25.1.0",
+    "pyotp>=2.10.0",
+    "httpx>=0.28.1",
+    "google-auth>=2.55.2",
+    "python-json-logger>=4.1.0",
+    "cryptography>=49.0.0",
+    "phonenumbers>=9.0.34",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=9.1.1",
+    "pytest-asyncio>=1.4.0",
+    "pytest-cov>=7.1.0",
+    "ruff>=0.15.21",
+    "pyyaml>=6.0.3",
+]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "session"
+asyncio_default_test_loop_scope = "session"
+testpaths = ["tests"]
+
+[tool.ruff]
+line-length = 110
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "ASYNC"]
+ignore = [
+    "B008",  # FastAPI's Depends()/Query()/etc. as a parameter default is the required, correct pattern.
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["app"]

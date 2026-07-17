@@ -1,0 +1,159 @@
+"""Framework-free domain enums for the Identity module.
+
+Deliberately plain `str, Enum` classes (not SQLAlchemy or Pydantic types)
+so the domain layer has zero dependency on persistence or web frameworks,
+per the module spec's layering rule (section 3):
+
+    API -> Application -> Domain <- Infrastructure
+
+Infrastructure (SQLAlchemy models) and the API layer (Pydantic schemas)
+both import *from* here, never the other way around.
+"""
+
+from __future__ import annotations
+
+from enum import Enum
+
+
+class AccountStatus(str, Enum):
+    PENDING_VERIFICATION = "PENDING_VERIFICATION"
+    ACTIVE = "ACTIVE"
+    LOCKED = "LOCKED"
+    SUSPENDED = "SUSPENDED"
+    DEACTIVATED = "DEACTIVATED"
+    DELETED = "DELETED"
+
+
+class AuthProvider(str, Enum):
+    LOCAL = "LOCAL"
+    GOOGLE = "GOOGLE"
+    APPLE = "APPLE"
+    FACEBOOK = "FACEBOOK"
+
+
+class DevicePlatform(str, Enum):
+    WEB = "WEB"
+    IOS = "IOS"
+    ANDROID = "ANDROID"
+    OTHER = "OTHER"
+
+
+class VerificationTokenType(str, Enum):
+    EMAIL_VERIFICATION = "EMAIL_VERIFICATION"
+    MOBILE_OTP = "MOBILE_OTP"
+    PASSWORD_RESET = "PASSWORD_RESET"
+    MFA_CHALLENGE = "MFA_CHALLENGE"
+    EMAIL_CHANGE = "EMAIL_CHANGE"
+    MOBILE_CHANGE = "MOBILE_CHANGE"
+
+
+class MfaMethod(str, Enum):
+    AUTHENTICATOR = "AUTHENTICATOR"
+    SMS = "SMS"
+    EMAIL = "EMAIL"
+
+
+class LoginOutcome(str, Enum):
+    SUCCESS = "SUCCESS"
+    FAILURE = "FAILURE"
+    BLOCKED = "BLOCKED"
+    MFA_REQUIRED = "MFA_REQUIRED"
+
+
+class EventSeverity(str, Enum):
+    INFO = "INFO"
+    LOW = "LOW"
+    MEDIUM = "MEDIUM"
+    HIGH = "HIGH"
+    CRITICAL = "CRITICAL"
+
+
+class RoleCode(str, Enum):
+    """Initial roles, per spec section 4.3."""
+
+    PATIENT = "PATIENT"
+    DOCTOR_APPLICANT = "DOCTOR_APPLICANT"
+    DOCTOR = "DOCTOR"
+    NUTRITIONIST_APPLICANT = "NUTRITIONIST_APPLICANT"
+    NUTRITIONIST = "NUTRITIONIST"
+    HOSPITAL_ADMIN = "HOSPITAL_ADMIN"
+    PHARMACY_ADMIN = "PHARMACY_ADMIN"
+    BACK_OFFICE_REVIEWER = "BACK_OFFICE_REVIEWER"
+    BACK_OFFICE_APPROVER = "BACK_OFFICE_APPROVER"
+    SUPPORT_AGENT = "SUPPORT_AGENT"
+    PLATFORM_ADMIN = "PLATFORM_ADMIN"
+
+
+class PermissionCode(str, Enum):
+    """A representative permission set (spec section 4.4 gives examples;
+    this is the full set implemented by this module, plus the Onboarding
+    module's permission set from its own spec section 25 — Identity owns
+    the `permissions` table, so every module's permission vocabulary is
+    registered here even though enforcement of onboarding-specific ones
+    lives in `app.modules.onboarding`). Additional module-specific
+    permissions will be added by their owning modules as they're built,
+    following the same `RESOURCE_ACTION` naming convention.
+    """
+
+    USER_SELF_READ = "USER_SELF_READ"
+    USER_SELF_UPDATE = "USER_SELF_UPDATE"
+    SESSION_SELF_REVOKE = "SESSION_SELF_REVOKE"
+
+    ROLE_ASSIGN = "ROLE_ASSIGN"
+    ROLE_REVOKE = "ROLE_REVOKE"
+
+    USER_ADMIN_READ = "USER_ADMIN_READ"
+    USER_ADMIN_SUSPEND = "USER_ADMIN_SUSPEND"
+    USER_ADMIN_ACTIVATE = "USER_ADMIN_ACTIVATE"
+    SESSION_ADMIN_REVOKE = "SESSION_ADMIN_REVOKE"
+
+    # --- Onboarding: applicant self-service (spec 25.1) ---------------
+    ONBOARDING_APPLICATION_READ_SELF = "ONBOARDING_APPLICATION_READ_SELF"
+    ONBOARDING_APPLICATION_UPDATE_SELF = "ONBOARDING_APPLICATION_UPDATE_SELF"
+    ONBOARDING_APPLICATION_SUBMIT_SELF = "ONBOARDING_APPLICATION_SUBMIT_SELF"
+    ONBOARDING_DOCUMENT_MANAGE_SELF = "ONBOARDING_DOCUMENT_MANAGE_SELF"
+    ONBOARDING_INFORMATION_REQUEST_READ_SELF = "ONBOARDING_INFORMATION_REQUEST_READ_SELF"
+    ONBOARDING_INFORMATION_REQUEST_RESPOND_SELF = "ONBOARDING_INFORMATION_REQUEST_RESPOND_SELF"
+    ONBOARDING_APPLICATION_WITHDRAW_SELF = "ONBOARDING_APPLICATION_WITHDRAW_SELF"
+
+    # --- Onboarding: reviewer (spec 25.2) ------------------------------
+    ONBOARDING_APPLICATION_SEARCH = "ONBOARDING_APPLICATION_SEARCH"
+    ONBOARDING_APPLICATION_READ = "ONBOARDING_APPLICATION_READ"
+    ONBOARDING_APPLICATION_ASSIGN = "ONBOARDING_APPLICATION_ASSIGN"
+    ONBOARDING_APPLICATION_CLAIM = "ONBOARDING_APPLICATION_CLAIM"
+    ONBOARDING_REVIEW_START = "ONBOARDING_REVIEW_START"
+    ONBOARDING_CHECKLIST_UPDATE = "ONBOARDING_CHECKLIST_UPDATE"
+    ONBOARDING_DOCUMENT_REVIEW = "ONBOARDING_DOCUMENT_REVIEW"
+    ONBOARDING_VERIFICATION_EXECUTE = "ONBOARDING_VERIFICATION_EXECUTE"
+    ONBOARDING_INFORMATION_REQUEST = "ONBOARDING_INFORMATION_REQUEST"
+    ONBOARDING_REVIEW_COMPLETE = "ONBOARDING_REVIEW_COMPLETE"
+    ONBOARDING_RISK_FLAG_MANAGE = "ONBOARDING_RISK_FLAG_MANAGE"
+
+    # --- Onboarding: approver (spec 25.3) -------------------------------
+    ONBOARDING_APPLICATION_APPROVE = "ONBOARDING_APPLICATION_APPROVE"
+    ONBOARDING_APPLICATION_CONDITIONALLY_APPROVE = "ONBOARDING_APPLICATION_CONDITIONALLY_APPROVE"
+    ONBOARDING_APPLICATION_REJECT = "ONBOARDING_APPLICATION_REJECT"
+    ONBOARDING_APPLICANT_SUSPEND = "ONBOARDING_APPLICANT_SUSPEND"
+    ONBOARDING_APPLICANT_REINSTATE = "ONBOARDING_APPLICANT_REINSTATE"
+
+    # --- Onboarding: administrative (spec 25.4) -------------------------
+    ONBOARDING_RULE_MANAGE = "ONBOARDING_RULE_MANAGE"
+    ONBOARDING_CHECKLIST_MANAGE = "ONBOARDING_CHECKLIST_MANAGE"
+    ONBOARDING_APPLICATION_REASSIGN = "ONBOARDING_APPLICATION_REASSIGN"
+    ONBOARDING_DECISION_CORRECT = "ONBOARDING_DECISION_CORRECT"
+    ONBOARDING_AUDIT_READ = "ONBOARDING_AUDIT_READ"
+
+
+# Mandatory MFA per spec section 15.1. Patients are intentionally excluded.
+MANDATORY_MFA_ROLES: frozenset[RoleCode] = frozenset(
+    {
+        RoleCode.DOCTOR,
+        RoleCode.NUTRITIONIST,
+        RoleCode.HOSPITAL_ADMIN,
+        RoleCode.PHARMACY_ADMIN,
+        RoleCode.BACK_OFFICE_REVIEWER,
+        RoleCode.BACK_OFFICE_APPROVER,
+        RoleCode.SUPPORT_AGENT,
+        RoleCode.PLATFORM_ADMIN,
+    }
+)

@@ -1,0 +1,58 @@
+name: health-platform
+
+services:
+  db:
+    # Latest stable PostgreSQL (18.x) as of writing. The official image
+    # bundles contrib extensions (including citext, used by this schema)
+    # — no extra install step needed, the migration enables it with
+    # `CREATE EXTENSION IF NOT EXISTS citext`.
+    image: postgres:18-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: health_platform
+      POSTGRES_PASSWORD: health_platform_dev
+      POSTGRES_DB: health_platform
+    ports:
+      - "5432:5432"
+    volumes:
+      # PostgreSQL 18+ images changed PGDATA to a version-specific path
+      # (/var/lib/postgresql/<major>/docker) so pg_upgrade --link works
+      # across major versions without a mount-point boundary in the way.
+      # Mount the *parent* directory, not .../data — see
+      # https://github.com/docker-library/postgres/pull/1259
+      - pgdata:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U health_platform -d health_platform"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  app:
+    build: .
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      # Overrides .env's DATABASE_URL: inside the compose network the
+      # database is reachable at the service name `db`, not `localhost`.
+      DATABASE_URL: postgresql+asyncpg://health_platform:health_platform_dev@db:5432/health_platform
+    ports:
+      - "8000:8000"
+    depends_on:
+      db:
+        condition: service_healthy
+    volumes:
+      - ./keys:/app/keys
+      - .:/app
+    command: sh -c "alembic upgrade head && python -m scripts.seed_roles_permissions && uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload"
+
+  adminer:
+    image: adminer:latest
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    depends_on:
+      - db
+
+volumes:
+  pgdata:
