@@ -77,6 +77,28 @@ PERMISSION_DESCRIPTIONS: dict[PermissionCode, str] = {
     PermissionCode.ONBOARDING_APPLICATION_REASSIGN: "Reassign an onboarding application between reviewers",
     PermissionCode.ONBOARDING_DECISION_CORRECT: "Issue an administrative correction to a final decision",
     PermissionCode.ONBOARDING_AUDIT_READ: "Read onboarding audit/history records",
+    # Providers: self-service
+    PermissionCode.PROVIDER_PROFILE_READ_SELF: "Read own provider profile",
+    PermissionCode.PROVIDER_PROFILE_UPDATE_SELF: "Update own provider profile",
+    PermissionCode.PROVIDER_REGISTRATION_MANAGE_SELF: "Manage own professional registrations",
+    PermissionCode.PROVIDER_QUALIFICATION_MANAGE_SELF: "Manage own qualifications",
+    PermissionCode.PROVIDER_SPECIALITY_MANAGE_SELF: "Manage own specialities",
+    PermissionCode.PROVIDER_LANGUAGE_MANAGE_SELF: "Manage own consultation languages",
+    PermissionCode.PROVIDER_SERVICE_MANAGE_SELF: "Manage own services",
+    PermissionCode.PROVIDER_LOCATION_MANAGE_SELF: "Manage own practice locations",
+    PermissionCode.PROVIDER_AFFILIATION_MANAGE_SELF: "Manage own institution affiliations",
+    PermissionCode.PROVIDER_PUBLICATION_MANAGE_SELF: "Publish/unpublish own provider profile",
+    # Providers: back office
+    PermissionCode.PROVIDER_SEARCH: "Search provider profiles",
+    PermissionCode.PROVIDER_READ: "Read any provider profile",
+    PermissionCode.PROVIDER_CORRECT: "Administratively correct provider data",
+    PermissionCode.PROVIDER_HIDE: "Administratively hide a provider profile",
+    PermissionCode.PROVIDER_SUSPEND: "Suspend a provider profile",
+    PermissionCode.PROVIDER_REINSTATE: "Reinstate a provider",
+    PermissionCode.PROVIDER_STATUS_HISTORY_READ: "Read provider status history",
+    PermissionCode.PROVIDER_PUBLICATION_HISTORY_READ: "Read provider publication history",
+    PermissionCode.PROVIDER_AFFILIATION_CONFIRM: "Confirm a provider's institution affiliation",
+    PermissionCode.PROVIDER_AFFILIATION_REJECT: "Reject a provider's institution affiliation",
 }
 
 # Every authenticated user gets these regardless of role — anyone might
@@ -129,18 +151,54 @@ ONBOARDING_APPROVER_PERMISSIONS = {
     PermissionCode.ONBOARDING_APPLICANT_REINSTATE,
 }
 
+# Providers: self-service (spec 32.1) — granted only to the roles that can
+# actually hold a provider profile, unlike BASE_PERMISSIONS' onboarding
+# self-service grants (which any authenticated user gets, since anyone
+# might start an onboarding application).
+PROVIDER_SELF_PERMISSIONS = {
+    PermissionCode.PROVIDER_PROFILE_READ_SELF,
+    PermissionCode.PROVIDER_PROFILE_UPDATE_SELF,
+    PermissionCode.PROVIDER_REGISTRATION_MANAGE_SELF,
+    PermissionCode.PROVIDER_QUALIFICATION_MANAGE_SELF,
+    PermissionCode.PROVIDER_SPECIALITY_MANAGE_SELF,
+    PermissionCode.PROVIDER_LANGUAGE_MANAGE_SELF,
+    PermissionCode.PROVIDER_SERVICE_MANAGE_SELF,
+    PermissionCode.PROVIDER_LOCATION_MANAGE_SELF,
+    PermissionCode.PROVIDER_AFFILIATION_MANAGE_SELF,
+    PermissionCode.PROVIDER_PUBLICATION_MANAGE_SELF,
+}
+
+# Providers: back office (spec 32.3) plus the institution-confirmation
+# stand-in (spec 32.4, 17.7). Unlike Onboarding's reviewer/approver split,
+# the Providers spec doesn't define its own maker-checker distinction for
+# these, so both back-office roles get the full set; PLATFORM_ADMIN
+# already gets everything via `set(PermissionCode)` below.
+PROVIDER_BACKOFFICE_PERMISSIONS = {
+    PermissionCode.PROVIDER_SEARCH,
+    PermissionCode.PROVIDER_READ,
+    PermissionCode.PROVIDER_CORRECT,
+    PermissionCode.PROVIDER_HIDE,
+    PermissionCode.PROVIDER_SUSPEND,
+    PermissionCode.PROVIDER_REINSTATE,
+    PermissionCode.PROVIDER_STATUS_HISTORY_READ,
+    PermissionCode.PROVIDER_PUBLICATION_HISTORY_READ,
+    PermissionCode.PROVIDER_AFFILIATION_CONFIRM,
+    PermissionCode.PROVIDER_AFFILIATION_REJECT,
+}
+
 ROLE_PERMISSIONS: dict[RoleCode, set[PermissionCode]] = {
     RoleCode.PATIENT: BASE_PERMISSIONS,
-    RoleCode.DOCTOR_APPLICANT: BASE_PERMISSIONS,
-    RoleCode.DOCTOR: BASE_PERMISSIONS,
-    RoleCode.NUTRITIONIST_APPLICANT: BASE_PERMISSIONS,
-    RoleCode.NUTRITIONIST: BASE_PERMISSIONS,
+    RoleCode.DOCTOR_APPLICANT: BASE_PERMISSIONS | PROVIDER_SELF_PERMISSIONS,
+    RoleCode.DOCTOR: BASE_PERMISSIONS | PROVIDER_SELF_PERMISSIONS,
+    RoleCode.NUTRITIONIST_APPLICANT: BASE_PERMISSIONS | PROVIDER_SELF_PERMISSIONS,
+    RoleCode.NUTRITIONIST: BASE_PERMISSIONS | PROVIDER_SELF_PERMISSIONS,
     RoleCode.HOSPITAL_ADMIN: BASE_PERMISSIONS,
     RoleCode.PHARMACY_ADMIN: BASE_PERMISSIONS,
     RoleCode.SUPPORT_AGENT: BASE_PERMISSIONS | {PermissionCode.USER_ADMIN_READ},
     RoleCode.BACK_OFFICE_REVIEWER: BASE_PERMISSIONS
     | {PermissionCode.USER_ADMIN_READ}
-    | ONBOARDING_REVIEWER_PERMISSIONS,
+    | ONBOARDING_REVIEWER_PERMISSIONS
+    | PROVIDER_BACKOFFICE_PERMISSIONS,
     RoleCode.BACK_OFFICE_APPROVER: BASE_PERMISSIONS
     | {
         PermissionCode.USER_ADMIN_READ,
@@ -152,7 +210,8 @@ ROLE_PERMISSIONS: dict[RoleCode, set[PermissionCode]] = {
         PermissionCode.ONBOARDING_AUDIT_READ,
     }
     | ONBOARDING_REVIEWER_PERMISSIONS
-    | ONBOARDING_APPROVER_PERMISSIONS,
+    | ONBOARDING_APPROVER_PERMISSIONS
+    | PROVIDER_BACKOFFICE_PERMISSIONS,
     RoleCode.PLATFORM_ADMIN: BASE_PERMISSIONS | set(PermissionCode),
 }
 

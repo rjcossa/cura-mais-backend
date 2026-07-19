@@ -1,14 +1,25 @@
 """Provider module port (Onboarding spec section 21.4) and a mock adapter.
 
-The Provider module (doctor/nutritionist public profiles, availability,
-consultation pricing, etc.) doesn't exist yet. Same pattern as
-`app/shared/documents/port.py`: a narrow interface Onboarding's decision
-service depends on, satisfied by a recording mock until the real module
-exists. The mock's `validate_provider_profile` always returns True (there
-is no real profile to validate against yet) — Onboarding's own
-completeness/submission checks are what actually gate submission today;
-this port exists so that call site doesn't need to change when a real
-Provider module ships.
+The real Provider module now exists (`app.modules.providers`) and
+satisfies this port for real via
+`app.modules.providers.infrastructure.provider_port_adapter.ProviderPortAdapter`
+— constructed directly at each call site (Identity's and Onboarding's own
+outbox dispatchers), the same way those dispatchers already build
+`IdentityAdapter`/`RoleService` fresh per delivery, rather than through
+this module's `get_provider_adapter()` singleton. That singleton (and
+`MockProviderAdapter`) stay as-is, still used by tests that want a pure
+in-memory stand-in and by anything that hasn't been wired to the real
+adapter. The mock's `validate_provider_profile` always returns True — no
+call site actually depends on it today (confirmed by inspection), so it
+stays a placeholder for a future consumer rather than real validation
+logic.
+
+`create_provider` (spec 8.1's provider-creation flow) was added to the
+Protocol/mock alongside the real module — the ID parameter across every
+method here is the Identity **user_id**, not a hypothetical `providers.id`
+(confirmed by reading how Onboarding's `application_service.py` derives
+`applicant_entity_id` for DOCTOR/NUTRITIONIST applicants: it's set to
+`applicant_user_id` directly).
 """
 
 from __future__ import annotations
@@ -34,6 +45,9 @@ class ProviderActivationCall:
 
 
 class ProviderPort(Protocol):
+    async def create_provider(
+        self, user_id: uuid.UUID, *, provider_type: str, first_name: str, last_name: str, email: str | None = None
+    ) -> None: ...
     async def get_provider_profile(self, provider_id: uuid.UUID) -> ProviderProfile: ...
     async def validate_provider_profile(self, provider_id: uuid.UUID) -> bool: ...
     async def activate_provider(self, provider_id: uuid.UUID, *, approval_reference: str) -> None: ...
@@ -50,6 +64,12 @@ class MockProviderAdapter:
     def __init__(self) -> None:
         self.calls: list[ProviderActivationCall] = []
         self._active: dict[uuid.UUID, bool] = {}
+        self.created: list[uuid.UUID] = []
+
+    async def create_provider(
+        self, user_id: uuid.UUID, *, provider_type: str, first_name: str, last_name: str, email: str | None = None
+    ) -> None:
+        self.created.append(user_id)
 
     async def get_provider_profile(self, provider_id: uuid.UUID) -> ProviderProfile:
         return ProviderProfile(provider_id=provider_id, exists=True, active=self._active.get(provider_id, False))

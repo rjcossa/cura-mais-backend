@@ -18,10 +18,25 @@ requested role through `RoleService.assign_role` — the same call
 `scripts/assign_role.py` and the admin API endpoint make, so the account
 ends up in exactly the state a normal role assignment would leave it in.
 
+`--create-provider` (opt-in, only meaningful with `--role
+DOCTOR_APPLICANT`/`NUTRITIONIST_APPLICANT`) additionally creates a
+`providers` row in the same transaction, via the same
+`ProviderPortAdapter.create_provider` call the real registration flow
+uses (`identity/application/outbox_dispatcher.py`) — so a
+script-bootstrapped applicant behaves like a normal one. It's opt-in
+rather than automatic so this script doesn't hard-fail in a dev
+environment where the Providers migration hasn't run yet, and doesn't
+become a second registration code path that has to be kept in sync with
+`RegistrationService._register()` forever. This is deliberately not
+chased into `scripts/assign_role.py` or the real admin role-assignment
+API — see `app.modules.providers.infrastructure.provider_port_adapter`'s
+docstring for why a missing `providers` row surfaces loudly instead.
+
 Usage:
     python -m scripts.create_user --email USER_EMAIL --password PASSWORD --role ROLE_CODE
     python -m scripts.create_user --email USER_EMAIL --role ROLE_CODE   # password auto-generated and printed
     python -m scripts.create_user --email admin@example.com --role PLATFORM_ADMIN --mobile +258840000000
+    python -m scripts.create_user --email doctor@example.com --role DOCTOR_APPLICANT --create-provider
     python -m scripts.create_user --list-roles
 """
 
@@ -77,6 +92,11 @@ def _parse_args() -> argparse.Namespace:
     parser.add_argument("--first-name", default="", help="First name, used only for the security log entry")
     parser.add_argument("--last-name", default="", help="Last name, used only for the security log entry")
     parser.add_argument("--reason", default="Created via scripts.create_user", help="Audit reason for the role grant")
+    parser.add_argument(
+        "--create-provider",
+        action="store_true",
+        help="Also create a providers row (only valid with --role DOCTOR_APPLICANT/NUTRITIONIST_APPLICANT)",
+    )
     parser.add_argument("--list-roles", action="store_true", help="List valid role codes and exit")
     args = parser.parse_args()
 
@@ -89,6 +109,12 @@ def _parse_args() -> argparse.Namespace:
     return args
 
 
+_PROVIDER_TYPE_BY_APPLICANT_ROLE = {
+    "DOCTOR_APPLICANT": "DOCTOR",
+    "NUTRITIONIST_APPLICANT": "NUTRITIONIST",
+}
+
+
 async def create(
     email: str,
     role_code: str,
@@ -98,7 +124,11 @@ async def create(
     first_name: str,
     last_name: str,
     reason: str,
+    create_provider: bool = False,
 ) -> None:
+    if create_provider and role_code not in _PROVIDER_TYPE_BY_APPLICANT_ROLE:
+        print(f"--create-provider requires --role to be one of: {', '.join(_PROVIDER_TYPE_BY_APPLICANT_ROLE)}")
+        return
     settings = get_settings()
     session_factory = get_session_factory()
 
@@ -170,6 +200,17 @@ async def create(
             await session.rollback()
             return
 
+        if create_provider:
+            from app.modules.providers.infrastructure.provider_port_adapter import ProviderPortAdapter
+
+            await ProviderPortAdapter(session).create_provider(
+                user.id,
+                provider_type=_PROVIDER_TYPE_BY_APPLICANT_ROLE[role_code],
+                first_name=first_name,
+                last_name=last_name,
+                email=normalized_email,
+            )
+
         security_log = SqlAlchemySecurityLogRepository(session)
         await security_log.add_security_event(
             IdentitySecurityEvent(
@@ -185,6 +226,8 @@ async def create(
         print(f"+ user {normalized_email} ({user.id})")
         print(f"  role: {role_code}")
         print(f"  status: ACTIVE, email_verified=True, mobile_verified={bool(normalized_mobile)}")
+        if create_provider:
+            print(f"  provider: created ({_PROVIDER_TYPE_BY_APPLICANT_ROLE[role_code]})")
         if generated_password:
             print(f"  password (generated — save this, it won't be shown again): {password}")
 
@@ -206,6 +249,7 @@ def main() -> None:
             first_name=args.first_name,
             last_name=args.last_name,
             reason=args.reason,
+            create_provider=args.create_provider,
         )
     )
 

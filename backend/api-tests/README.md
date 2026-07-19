@@ -29,6 +29,8 @@ VS Code extension (`humao.rest-client`). Open any `.http` file and click
 | [`users.http`](users.http) | Current-user profile/email/mobile/deactivation + back-office user administration (roles, suspend/activate) |
 | [`onboarding-applicant.http`](onboarding-applicant.http) | The applicant-facing onboarding flow: start application, fill sections, upload documents, submit, respond to info requests |
 | [`onboarding-back-office.http`](onboarding-back-office.http) | The reviewer/approver flow: search applications, assign/claim, checklist, verification checks, risk flags, decisions |
+| [`providers-self-service.http`](providers-self-service.http) | Provider profile, completeness, registrations, qualifications, specialities, languages, services, locations, affiliations, media, publication, and public profile lookup |
+| [`providers-back-office.http`](providers-back-office.http) | Search, detail, corrections, suspend/reinstate/hide, and the institution affiliation confirm/reject stand-in |
 
 ## Chaining requests
 

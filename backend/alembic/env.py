@@ -24,6 +24,7 @@ from app.core.database import Base  # noqa: E402
 from app.core import models as core_models  # noqa: E402,F401
 from app.modules.identity.domain import models as identity_models  # noqa: E402,F401
 from app.modules.onboarding.domain import models as onboarding_models  # noqa: E402,F401
+from app.modules.providers.domain import models as providers_models  # noqa: E402,F401
 
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.

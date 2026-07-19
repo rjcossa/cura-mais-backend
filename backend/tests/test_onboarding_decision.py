@@ -151,22 +151,54 @@ async def test_approval_role_transition_happens_via_outbox(client, session_facto
 
 
 async def test_approval_triggers_provider_activation(client, session_factory):
+    """Onboarding's decision service never calls the Provider module
+    directly — it enqueues a `postApprovalAction: "ACTIVATE"` outbox row,
+    delivered asynchronously by `onboarding/application/outbox_dispatcher.py`
+    via a real `ProviderPortAdapter` (see that module — `get_provider_adapter()`'s
+    mock singleton is no longer what this call site uses). This test seeds
+    a real `providers` row directly (this test's applicant is created with
+    role PATIENT, not DOCTOR_APPLICANT, since `create_application` doesn't
+    check role/type match — matching the test's own pre-existing setup, see
+    `_application_pending_approval`) and asserts against real provider
+    state afterward instead of a mock's recorded calls.
+    """
+    from app.modules.providers.domain.models import Provider, ProviderStatusHistory
+
     application_id, applicant_id, _, _, approver_headers = await _application_pending_approval(client, session_factory)
+
+    async with session_factory() as session:
+        provider = Provider(
+            user_id=applicant_id,
+            provider_type="DOCTOR",
+            first_name="Ana",
+            last_name="Mabote",
+            slug=f"ana-mabote-{applicant_id}",
+        )
+        session.add(provider)
+        await session.commit()
+        provider_id = provider.id
+
     r = await client.post(
         f"/api/v1/back-office/onboarding/applications/{application_id}/approve", json={}, headers=approver_headers
     )
     assert r.status_code == 200
 
     from app.modules.onboarding.application.outbox_dispatcher import dispatch_once
-    from app.shared.provider.port import get_provider_adapter
 
     for _ in range(10):
         if await dispatch_once() == 0:
             break
 
-    adapter = get_provider_adapter()
-    activation_calls = [c for c in adapter.calls if c.action == "ACTIVATE"]
-    assert len(activation_calls) >= 1
+    async with session_factory() as session:
+        refreshed = await session.get(Provider, provider_id)
+        assert refreshed.verification_status == "VERIFIED"
+        assert refreshed.profile_status == "ACTIVE"
+        assert refreshed.approval_reference
+
+        history = (
+            await session.execute(select(ProviderStatusHistory).where(ProviderStatusHistory.provider_id == provider_id))
+        ).scalars().all()
+        assert any(h.status_type == "PROFILE_STATUS" and h.new_status == "ACTIVE" for h in history)
 
 
 async def test_reject_application_requires_comments(client, session_factory):

@@ -97,6 +97,7 @@ class RegistrationService:
             ),
             initial_role=RoleCode.DOCTOR_APPLICANT,
             identity_created_event=IdentityEvent.DOCTOR_APPLICANT_IDENTITY_CREATED,
+            provider_type="DOCTOR",
         )
 
     async def _register(
@@ -110,6 +111,7 @@ class RegistrationService:
         consents_ok: bool,
         initial_role: RoleCode,
         identity_created_event: str,
+        provider_type: str | None = None,
     ) -> RegisterResponse:
         if not consents_ok:
             raise IdentityError.for_code("CONSENT_REQUIRED")
@@ -181,9 +183,24 @@ class RegistrationService:
             {"userId": str(user.id), "email": normalized_email, "role": initial_role.value},
             aggregate_id=user.id,
         )
-        await self._outbox.enqueue(
-            identity_created_event, {"userId": str(user.id)}, aggregate_id=user.id
-        )
+        identity_created_payload = {"userId": str(user.id)}
+        if provider_type:
+            # Spec 8.1's provider-creation trigger — delivered by
+            # `identity/application/outbox_dispatcher.py`, which calls
+            # `ProviderPortAdapter.create_provider(...)` after this
+            # transaction commits. Kept off the `USER_REGISTERED`/
+            # notification rows above so a Provider-creation failure can't
+            # get entangled with an unrelated notification-send retry.
+            identity_created_payload.update(
+                {
+                    "postRegistrationAction": "CREATE_PROVIDER",
+                    "providerType": provider_type,
+                    "firstName": first_name,
+                    "lastName": last_name,
+                    "email": normalized_email,
+                }
+            )
+        await self._outbox.enqueue(identity_created_event, identity_created_payload, aggregate_id=user.id)
         await self._outbox.enqueue(
             IdentityEvent.EMAIL_VERIFICATION_REQUESTED,
             {

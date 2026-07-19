@@ -1,0 +1,478 @@
+### Providers — Self-Service + Public
+### Profile, completeness, registrations, qualifications, specialities,
+### languages, services, locations, affiliations, media, publication, and
+### (unauthenticated) public profile lookup.
+### See ../README (api-tests) for setup notes.
+###
+### A provider record only exists once Identity registration has fired the
+### creation hook (see app/modules/providers/infrastructure/provider_port_adapter.py).
+### Fastest way to get a ready-to-use self-service account without waiting
+### on the full doctor-registration + outbox-delivery round trip:
+###   python -m scripts.create_user --email doctor@example.com --role DOCTOR_APPLICANT --create-provider
+### (password is auto-generated and printed if you don't pass --password).
+
+@baseUrl = http://localhost:8000
+@apiPrefix = {{baseUrl}}/api/v1
+
+@doctorEmail = doctor.provider.test1@example.com
+@password = SuperSecret123!
+
+
+### Log in as the provider
+# @name login
+POST {{apiPrefix}}/auth/login
+Content-Type: application/json
+
+{
+  "email": "{{doctorEmail}}",
+  "password": "{{password}}"
+}
+
+###
+
+@accessToken = {{login.response.body.$.data.accessToken}}
+
+
+###############################################################################
+# Profile + completeness
+###############################################################################
+
+### Get the current provider's profile
+# @name getProfile
+GET {{apiPrefix}}/providers/me
+Authorization: Bearer {{accessToken}}
+
+###
+
+@profileVersion = {{getProfile.response.body.$.data.version}}
+
+### Update the current provider's profile
+PATCH {{apiPrefix}}/providers/me
+Content-Type: application/json
+Authorization: Bearer {{accessToken}}
+
+{
+  "professionalTitle": "Dr.",
+  "displayName": "Dr. Paulo Mucavele",
+  "shortBiography": "General practitioner based in Maputo.",
+  "biography": "General practitioner with experience in primary healthcare and preventive medicine.",
+  "yearsOfExperience": 12,
+  "gender": "MALE",
+  "dateOfBirth": "1985-06-12",
+  "nationality": "MZ",
+  "version": {{profileVersion}}
+}
+
+### Get profile completeness
+GET {{apiPrefix}}/providers/me/completeness
+Authorization: Bearer {{accessToken}}
+
+
+###############################################################################
+# Professional registrations
+###############################################################################
+
+### List registrations
+GET {{apiPrefix}}/providers/me/registrations
+Authorization: Bearer {{accessToken}}
+
+### Create a professional registration
+# @name createRegistration
+POST {{apiPrefix}}/providers/me/registrations
+Content-Type: application/json
+Authorization: Bearer {{accessToken}}
+
+{
+  "registrationType": "MEDICAL_COUNCIL",
+  "registrationNumber": "OM-2026-01234",
+  "registrationAuthority": "Ordem dos Médicos de Moçambique",
+  "registrationCountry": "MZ",
+  "issueDate": "2014-03-01",
+  "expiryDate": "2029-03-01",
+  "isPrimary": true
+}
+
+###
+
+@registrationId = {{createRegistration.response.body.$.data.id}}
+
+### Update a registration
+PATCH {{apiPrefix}}/providers/me/registrations/{{registrationId}}
+Content-Type: application/json
+Authorization: Bearer {{accessToken}}
+
+{
+  "expiryDate": "2030-03-01"
+}
+
+### Set the primary registration
+POST {{apiPrefix}}/providers/me/registrations/{{registrationId}}/set-primary
+Authorization: Bearer {{accessToken}}
+
+### Delete a registration (only allowed while unverified and unlocked)
+DELETE {{apiPrefix}}/providers/me/registrations/{{registrationId}}
+Authorization: Bearer {{accessToken}}
+
+
+###############################################################################
+# Qualifications
+###############################################################################
+
+### List qualifications
+GET {{apiPrefix}}/providers/me/qualifications
+Authorization: Bearer {{accessToken}}
+
+### Create a qualification
+# @name createQualification
+POST {{apiPrefix}}/providers/me/qualifications
+Content-Type: application/json
+Authorization: Bearer {{accessToken}}
+
+{
+  "qualificationType": "UNDERGRADUATE_DEGREE",
+  "qualificationName": "Bachelor of Medicine and Surgery",
+  "institutionName": "Universidade Eduardo Mondlane",
+  "institutionCountry": "MZ",
+  "startDate": "2007-02-01",
+  "completionDate": "2013-12-15"
+}
+
+###
+
+@qualificationId = {{createQualification.response.body.$.data.id}}
+
+### Update a qualification
+PATCH {{apiPrefix}}/providers/me/qualifications/{{qualificationId}}
+Content-Type: application/json
+Authorization: Bearer {{accessToken}}
+
+{
+  "institutionCountry": "MZ"
+}
+
+### Delete a qualification (only allowed while unverified)
+DELETE {{apiPrefix}}/providers/me/qualifications/{{qualificationId}}
+Authorization: Bearer {{accessToken}}
+
+
+###############################################################################
+# Specialities
+###############################################################################
+
+### List reference specialities (public reference data, no auth)
+# @name listReferenceSpecialities
+GET {{apiPrefix}}/reference-data/provider-specialities?providerType=DOCTOR&active=true
+Authorization: Bearer {{accessToken}}
+
+###
+
+@specialityId = {{listReferenceSpecialities.response.body.$.data[0].id}}
+
+### List provider specialities
+GET {{apiPrefix}}/providers/me/specialities
+Authorization: Bearer {{accessToken}}
+
+### Add a provider speciality
+# @name addSpeciality
+POST {{apiPrefix}}/providers/me/specialities
+Content-Type: application/json
+Authorization: Bearer {{accessToken}}
+
+{
+  "specialityId": "{{specialityId}}",
+  "isPrimary": true,
+  "yearsOfExperience": 10
+}
+
+###
+
+@providerSpecialityId = {{addSpeciality.response.body.$.data.id}}
+
+### Update a provider speciality
+PATCH {{apiPrefix}}/providers/me/specialities/{{providerSpecialityId}}
+Content-Type: application/json
+Authorization: Bearer {{accessToken}}
+
+{
+  "yearsOfExperience": 11
+}
+
+### Set the primary speciality
+POST {{apiPrefix}}/providers/me/specialities/{{providerSpecialityId}}/set-primary
+Authorization: Bearer {{accessToken}}
+
+### Remove a speciality
+DELETE {{apiPrefix}}/providers/me/specialities/{{providerSpecialityId}}
+Authorization: Bearer {{accessToken}}
+
+
+###############################################################################
+# Languages
+###############################################################################
+
+### List languages
+GET {{apiPrefix}}/providers/me/languages
+Authorization: Bearer {{accessToken}}
+
+### Add a language
+POST {{apiPrefix}}/providers/me/languages
+Content-Type: application/json
+Authorization: Bearer {{accessToken}}
+
+{
+  "languageCode": "pt-MZ",
+  "proficiency": "NATIVE",
+  "canConsult": true
+}
+
+### Add a second language
+POST {{apiPrefix}}/providers/me/languages
+Content-Type: application/json
+Authorization: Bearer {{accessToken}}
+
+{
+  "languageCode": "en",
+  "proficiency": "FLUENT",
+  "canConsult": true
+}
+
+### Update a language
+PATCH {{apiPrefix}}/providers/me/languages/en
+Content-Type: application/json
+Authorization: Bearer {{accessToken}}
+
+{
+  "proficiency": "NATIVE"
+}
+
+### Remove a language
+DELETE {{apiPrefix}}/providers/me/languages/en
+Authorization: Bearer {{accessToken}}
+
+
+###############################################################################
+# Services
+###############################################################################
+
+### List services
+GET {{apiPrefix}}/providers/me/services
+Authorization: Bearer {{accessToken}}
+
+### Create a service
+# @name createService
+POST {{apiPrefix}}/providers/me/services
+Content-Type: application/json
+Authorization: Bearer {{accessToken}}
+
+{
+  "serviceCode": "GENERAL_MEDICAL_CONSULTATION",
+  "name": "General Medical Consultation",
+  "description": "A general consultation for non-emergency health concerns.",
+  "specialityId": "{{specialityId}}",
+  "durationMinutes": 30,
+  "price": 1500.00,
+  "currency": "MZN",
+  "proBono": false,
+  "requiresPreScreening": true,
+  "minimumPatientAge": 18,
+  "deliveryModes": ["VIDEO", "IN_PERSON"],
+  "bookingNoticeMinutes": 120,
+  "cancellationNoticeMinutes": 360
+}
+
+###
+
+@serviceId = {{createService.response.body.$.data.id}}
+
+### Get a service
+GET {{apiPrefix}}/providers/me/services/{{serviceId}}
+Authorization: Bearer {{accessToken}}
+
+### Update a service
+PATCH {{apiPrefix}}/providers/me/services/{{serviceId}}
+Content-Type: application/json
+Authorization: Bearer {{accessToken}}
+
+{
+  "price": 1600.00,
+  "publiclyVisible": true
+}
+
+### Activate a service
+# Preconditions: provider VERIFIED + ACTIVE, >=1 delivery mode, valid
+# price/currency, linked speciality active+assigned, and an active
+# physical location if the modes include IN_PERSON/HOME_VISIT.
+POST {{apiPrefix}}/providers/me/services/{{serviceId}}/activate
+Authorization: Bearer {{accessToken}}
+
+### Deactivate a service
+POST {{apiPrefix}}/providers/me/services/{{serviceId}}/deactivate
+Authorization: Bearer {{accessToken}}
+
+### Archive a service
+POST {{apiPrefix}}/providers/me/services/{{serviceId}}/archive
+Authorization: Bearer {{accessToken}}
+
+
+###############################################################################
+# Locations
+###############################################################################
+
+### List locations
+GET {{apiPrefix}}/providers/me/locations
+Authorization: Bearer {{accessToken}}
+
+### Create a location
+# @name createLocation
+POST {{apiPrefix}}/providers/me/locations
+Content-Type: application/json
+Authorization: Bearer {{accessToken}}
+
+{
+  "locationType": "PRIVATE_PRACTICE",
+  "name": "Paulo Mucavele Medical Practice",
+  "addressLine1": "Avenida Julius Nyerere",
+  "addressLine2": "Building 10, Floor 2",
+  "city": "Maputo",
+  "province": "Maputo Cidade",
+  "countryCode": "MZ",
+  "latitude": -25.9692,
+  "longitude": 32.5732,
+  "contactNumber": "+258842345678",
+  "wheelchairAccessible": true,
+  "parkingAvailable": true,
+  "isPrimary": true
+}
+
+###
+
+@locationId = {{createLocation.response.body.$.data.id}}
+
+### Update a location
+PATCH {{apiPrefix}}/providers/me/locations/{{locationId}}
+Content-Type: application/json
+Authorization: Bearer {{accessToken}}
+
+{
+  "contactNumber": "+258842345679"
+}
+
+### Set the primary location
+POST {{apiPrefix}}/providers/me/locations/{{locationId}}/set-primary
+Authorization: Bearer {{accessToken}}
+
+### Deactivate a location
+POST {{apiPrefix}}/providers/me/locations/{{locationId}}/deactivate
+Authorization: Bearer {{accessToken}}
+
+
+###############################################################################
+# Institution affiliations
+###############################################################################
+
+### List affiliations
+GET {{apiPrefix}}/providers/me/affiliations
+Authorization: Bearer {{accessToken}}
+
+### Request an affiliation (remains PENDING until a back-office user
+### confirms it — see providers-back-office.http)
+# @name requestAffiliation
+POST {{apiPrefix}}/providers/me/affiliations
+Content-Type: application/json
+Authorization: Bearer {{accessToken}}
+
+{
+  "institutionId": "0fe50380-31bb-4e76-8064-1495dd6889b4",
+  "departmentId": "56f98d4c-47fd-4828-a1fb-b53ff3df52b8",
+  "affiliationType": "EMPLOYED",
+  "professionalPosition": "General Practitioner",
+  "startDate": "2025-01-01"
+}
+
+###
+
+@affiliationId = {{requestAffiliation.response.body.$.data.id}}
+
+### Update an affiliation
+PATCH {{apiPrefix}}/providers/me/affiliations/{{affiliationId}}
+Content-Type: application/json
+Authorization: Bearer {{accessToken}}
+
+{
+  "professionalPosition": "Senior General Practitioner"
+}
+
+### End an affiliation
+POST {{apiPrefix}}/providers/me/affiliations/{{affiliationId}}/end
+Content-Type: application/json
+Authorization: Bearer {{accessToken}}
+
+{
+  "endDate": "2026-12-31",
+  "reason": "Provider is leaving the institution."
+}
+
+
+###############################################################################
+# Profile photo / media
+###############################################################################
+
+### Create a profile-photo upload request
+# @name createPhotoUpload
+POST {{apiPrefix}}/providers/me/media/profile-photo/upload-request
+Content-Type: application/json
+Authorization: Bearer {{accessToken}}
+
+{
+  "fileName": "profile-photo.jpg",
+  "mimeType": "image/jpeg",
+  "fileSize": 845201
+}
+
+###
+
+@mediaId = {{createPhotoUpload.response.body.$.data.mediaId}}
+
+### Confirm the profile-photo upload
+# In a real client you'd PUT the file bytes to `uploadUrl` from the
+# response above before calling this.
+POST {{apiPrefix}}/providers/me/media/profile-photo/{{mediaId}}/confirm
+Content-Type: application/json
+Authorization: Bearer {{accessToken}}
+
+{
+  "checksum": "sha256:0000000000000000000000000000000000000000000000000000000000000000"
+}
+
+
+###############################################################################
+# Publication
+###############################################################################
+
+### Request publication
+# Requires: VERIFIED (or CONDITIONALLY_VERIFIED), ACTIVE profile, complete
+# profile (incl. profile photo), primary speciality, a consultation
+# language, an active service, and a valid primary registration — see
+# GET .../completeness above to check readiness first.
+POST {{apiPrefix}}/providers/me/publication/publish
+Content-Type: application/json
+Authorization: Bearer {{accessToken}}
+
+{
+  "confirmPublicProfile": true
+}
+
+### Unpublish
+POST {{apiPrefix}}/providers/me/publication/unpublish
+Authorization: Bearer {{accessToken}}
+
+
+###############################################################################
+# Public provider view (no authentication)
+###############################################################################
+
+### Get a public provider profile by ID
+GET {{apiPrefix}}/public/providers/{{getProfile.response.body.$.data.id}}
+
+### Get a public provider profile by slug
+GET {{apiPrefix}}/public/providers/slug/{{getProfile.response.body.$.data.slug}}

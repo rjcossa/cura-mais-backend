@@ -32,7 +32,6 @@ from app.modules.onboarding.infrastructure.identity_adapter import (
     apply_approval_role_transition,
 )
 from app.shared.institution.port import get_institution_adapter
-from app.shared.provider.port import get_provider_adapter
 
 _dispatcher: OutboxDispatcher | None = None
 
@@ -76,20 +75,26 @@ async def _handle_post_approval_action(payload: dict, action: str, session) -> N
         if applicant_type in _INSTITUTIONAL_TYPES:
             await get_institution_adapter().activate_institution(applicant_entity_id, approval_reference=reference)
         else:
-            await get_provider_adapter().activate_provider(applicant_entity_id, approval_reference=reference)
+            await _provider_adapter(session).activate_provider(applicant_entity_id, approval_reference=reference)
 
     elif action == "SUSPEND":
         reason = payload.get("reason", "")
         if applicant_type in _INSTITUTIONAL_TYPES:
             await get_institution_adapter().suspend_institution(applicant_entity_id, reason=reason)
         else:
-            await get_provider_adapter().suspend_provider(applicant_entity_id, reason=reason)
+            await _provider_adapter(session).suspend_provider(applicant_entity_id, reason=reason)
 
     elif action == "REINSTATE":
         if applicant_type in _INSTITUTIONAL_TYPES:
             await get_institution_adapter().activate_institution(applicant_entity_id, approval_reference=reference)
         else:
-            await get_provider_adapter().reinstate_provider(applicant_entity_id, approval_reference=reference)
+            await _provider_adapter(session).reinstate_provider(applicant_entity_id, approval_reference=reference)
+
+
+def _provider_adapter(session):
+    from app.modules.providers.infrastructure.provider_port_adapter import ProviderPortAdapter
+
+    return ProviderPortAdapter(session)
 
 
 def _role_service(session):

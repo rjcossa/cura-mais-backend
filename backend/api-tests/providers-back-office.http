@@ -1,0 +1,151 @@
+### Providers — Back Office
+### Search/detail, administrative corrections, suspend/reinstate/hide, and
+### the institution confirm/reject stand-in for affiliations (see
+### app/modules/providers/application/affiliation_service.py's docstring
+### for why that's back-office-operated rather than a real Institution
+### module integration).
+### Requires a token for a user holding the relevant PROVIDER_* permission
+### — BACK_OFFICE_REVIEWER/BACK_OFFICE_APPROVER/PLATFORM_ADMIN all qualify
+### (see scripts/seed_roles_permissions.py). See ../README (api-tests) for
+### how to bootstrap an admin account.
+
+@baseUrl = http://localhost:8000
+@apiPrefix = {{baseUrl}}/api/v1
+
+@reviewerEmail = admin@example.com
+@reviewerPassword = SuperSecret123!
+
+# A provider id to operate on — copy from providers-self-service.http's
+# "Get the current provider's profile" response, or from a search result
+# below.
+@providerId = REPLACE_WITH_PROVIDER_ID
+
+
+### Log in as a back-office reviewer/approver
+# @name login
+POST {{apiPrefix}}/auth/login
+Content-Type: application/json
+
+{
+  "email": "{{reviewerEmail}}",
+  "password": "{{reviewerPassword}}"
+}
+
+###
+
+@accessToken = {{login.response.body.$.data.accessToken}}
+
+
+###############################################################################
+# Search / detail
+###############################################################################
+
+### Search providers
+# @name searchProviders
+GET {{apiPrefix}}/back-office/providers?verificationStatus=VERIFIED&page=0&size=20
+Authorization: Bearer {{accessToken}}
+
+###
+
+@searchedProviderId = {{searchProviders.response.body.$.data.content[0].id}}
+
+### Search providers — by name and type
+GET {{apiPrefix}}/back-office/providers?providerType=DOCTOR&name=Mucavele&page=0&size=20
+Authorization: Bearer {{accessToken}}
+
+### Get provider detail (profile + registrations + qualifications +
+### specialities + services + locations + affiliations + history)
+GET {{apiPrefix}}/back-office/providers/{{providerId}}
+Authorization: Bearer {{accessToken}}
+
+### Get provider status history
+GET {{apiPrefix}}/back-office/providers/{{providerId}}/status-history
+Authorization: Bearer {{accessToken}}
+
+### Get provider publication history
+GET {{apiPrefix}}/back-office/providers/{{providerId}}/publication-history
+Authorization: Bearer {{accessToken}}
+
+
+###############################################################################
+# Administrative correction
+###############################################################################
+
+### Correct provider data
+# `updates` accepts the same editable fields as the self-service PATCH
+# .../providers/me (spec 9.2) — material fields (name/title/nationality)
+# still trigger ProviderMaterialChangeDetected when the provider is
+# already verified.
+PATCH {{apiPrefix}}/back-office/providers/{{providerId}}
+Content-Type: application/json
+Authorization: Bearer {{accessToken}}
+
+{
+  "updates": {
+    "years_of_experience": 13
+  },
+  "reason": "Corrected years of experience per updated CV on file.",
+  "version": 1
+}
+
+
+###############################################################################
+# Suspend / reinstate / hide
+###############################################################################
+
+### Suspend a provider profile
+# Cascades: verification -> SUSPENDED, profile -> SUSPENDED, publication
+# -> HIDDEN, and every ACTIVE service -> SUSPENDED.
+POST {{apiPrefix}}/back-office/providers/{{providerId}}/suspend
+Content-Type: application/json
+Authorization: Bearer {{accessToken}}
+
+{
+  "reasonCode": "PROFESSIONAL_LICENCE_EXPIRED",
+  "comments": "The provider's mandatory professional registration has expired.",
+  "sourceReference": "ONB-DOC-2027-000443"
+}
+
+### Reinstate a provider
+# Publication is deliberately NOT auto-restored — the provider must
+# request publication again once eligible.
+POST {{apiPrefix}}/back-office/providers/{{providerId}}/reinstate
+Content-Type: application/json
+Authorization: Bearer {{accessToken}}
+
+{
+  "approvalReference": "ONB-REINSTATE-2027-000112",
+  "comments": "Registration renewed and verified."
+}
+
+### Administratively hide a profile (does not revoke professional approval)
+POST {{apiPrefix}}/back-office/providers/{{providerId}}/hide
+Content-Type: application/json
+Authorization: Bearer {{accessToken}}
+
+{
+  "reasonCode": "PROFILE_UNDER_REVIEW",
+  "comments": "Profile temporarily hidden pending a compliance review."
+}
+
+
+###############################################################################
+# Institution affiliation confirmation (stand-in for the Institution module)
+###############################################################################
+
+# An affiliation id — copy from providers-self-service.http's "Request an
+# affiliation" response, or from the provider detail response above.
+@affiliationId = REPLACE_WITH_AFFILIATION_ID
+
+### Confirm an affiliation
+POST {{apiPrefix}}/back-office/providers/{{providerId}}/affiliations/{{affiliationId}}/confirm
+Authorization: Bearer {{accessToken}}
+
+### Reject an affiliation
+POST {{apiPrefix}}/back-office/providers/{{providerId}}/affiliations/{{affiliationId}}/reject
+Content-Type: application/json
+Authorization: Bearer {{accessToken}}
+
+{
+  "reason": "Institution could not confirm this employment relationship."
+}

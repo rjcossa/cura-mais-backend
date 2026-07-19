@@ -1,5 +1,6 @@
 """FastAPI application entry point for the Health Platform backend
-(modular monolith — currently the Identity and Onboarding modules).
+(modular monolith — currently the Identity, Onboarding, and Providers
+modules).
 
 Run locally with:
 
@@ -35,6 +36,11 @@ from app.modules.onboarding.application.outbox_dispatcher import (
 from app.modules.onboarding.application.scheduled_tasks import (
     run_polling_loop as run_onboarding_scheduled_tasks,
 )
+from app.modules.providers.api.router import providers_router
+from app.modules.providers.application.outbox_dispatcher import run_polling_loop as run_providers_outbox_loop
+from app.modules.providers.application.scheduled_tasks import (
+    run_polling_loop as run_providers_scheduled_tasks,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -50,6 +56,8 @@ async def lifespan(app: FastAPI):
         asyncio.create_task(run_identity_outbox_loop(stop_event=stop_event)),
         asyncio.create_task(run_onboarding_outbox_loop(stop_event=stop_event)),
         asyncio.create_task(run_onboarding_scheduled_tasks(stop_event=stop_event)),
+        asyncio.create_task(run_providers_outbox_loop(stop_event=stop_event)),
+        asyncio.create_task(run_providers_scheduled_tasks(stop_event=stop_event)),
     ]
 
     yield
@@ -76,9 +84,11 @@ def create_app() -> FastAPI:
             "**Identity**: registration, authentication, sessions, MFA, social login, and "
             "role/permission management. **Onboarding**: applicant onboarding, document "
             "review, verification checks, and maker-checker approval for doctors, "
-            "nutritionists, hospitals, clinics, and pharmacies."
+            "nutritionists, hospitals, clinics, and pharmacies. **Providers**: professional "
+            "profiles, registrations, qualifications, specialities, services, locations, "
+            "institution affiliations, and publication for doctors and nutritionists."
         ),
-        version="0.2.0",
+        version="0.3.0",
         lifespan=lifespan,
         openapi_tags=[
             {"name": "Authentication", "description": "Registration, login, token refresh, logout"},
@@ -93,6 +103,10 @@ def create_app() -> FastAPI:
             {"name": "Onboarding — Back Office", "description": "Search, assignment, risk flags, notes"},
             {"name": "Onboarding — Review", "description": "Review lifecycle and document review"},
             {"name": "Onboarding — Decisions", "description": "Verification checks, information requests, approve/reject/suspend"},
+            {"name": "Providers — Self-Service", "description": "Profile, registrations, qualifications, specialities, languages, services, locations, affiliations, media, publication"},
+            {"name": "Providers — Reference Data", "description": "Reference specialities lookup"},
+            {"name": "Providers — Public", "description": "Unauthenticated public provider profiles"},
+            {"name": "Providers — Back Office", "description": "Search, detail, corrections, suspend/reinstate"},
             {"name": "System", "description": "Health checks"},
         ],
     )
@@ -110,6 +124,7 @@ def create_app() -> FastAPI:
 
     app.include_router(identity_router, prefix=settings.api_v1_prefix)
     app.include_router(onboarding_router, prefix=settings.api_v1_prefix)
+    app.include_router(providers_router, prefix=settings.api_v1_prefix)
 
     @app.get("/health", tags=["System"], summary="Liveness check")
     async def health() -> dict:

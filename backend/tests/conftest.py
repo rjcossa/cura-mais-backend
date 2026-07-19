@@ -41,6 +41,7 @@ from app.core.rate_limit import get_rate_limiter  # noqa: E402
 from app.main import app as fastapi_app  # noqa: E402
 from app.modules.identity.domain.models import EventOutbox  # noqa: E402
 from scripts.seed_document_requirements import seed as seed_document_requirements  # noqa: E402
+from scripts.seed_medical_specialities import seed as seed_medical_specialities  # noqa: E402
 from scripts.seed_roles_permissions import seed as seed_roles_permissions  # noqa: E402
 
 
@@ -86,6 +87,7 @@ async def _clean_database():
     with contextlib.redirect_stdout(io.StringIO()):
         await seed_roles_permissions()
         await seed_document_requirements()
+        await seed_medical_specialities()
     yield
 
 
@@ -231,6 +233,69 @@ ONBOARDING_APPROVER_PERMISSIONS = ONBOARDING_REVIEWER_PERMISSIONS + [
     "ONBOARDING_APPLICANT_SUSPEND",
     "ONBOARDING_APPLICANT_REINSTATE",
 ]
+
+PROVIDER_SELF_PERMISSIONS = [
+    "PROVIDER_PROFILE_READ_SELF",
+    "PROVIDER_PROFILE_UPDATE_SELF",
+    "PROVIDER_REGISTRATION_MANAGE_SELF",
+    "PROVIDER_QUALIFICATION_MANAGE_SELF",
+    "PROVIDER_SPECIALITY_MANAGE_SELF",
+    "PROVIDER_LANGUAGE_MANAGE_SELF",
+    "PROVIDER_SERVICE_MANAGE_SELF",
+    "PROVIDER_LOCATION_MANAGE_SELF",
+    "PROVIDER_AFFILIATION_MANAGE_SELF",
+    "PROVIDER_PUBLICATION_MANAGE_SELF",
+]
+PROVIDER_BACKOFFICE_PERMISSIONS = [
+    "PROVIDER_SEARCH",
+    "PROVIDER_READ",
+    "PROVIDER_CORRECT",
+    "PROVIDER_HIDE",
+    "PROVIDER_SUSPEND",
+    "PROVIDER_REINSTATE",
+    "PROVIDER_STATUS_HISTORY_READ",
+    "PROVIDER_PUBLICATION_HISTORY_READ",
+    "PROVIDER_AFFILIATION_CONFIRM",
+    "PROVIDER_AFFILIATION_REJECT",
+]
+
+
+async def make_provider(
+    session_factory,
+    user_id,
+    *,
+    provider_type: str = "DOCTOR",
+    first_name: str = "Ana",
+    last_name: str = "Mabote",
+    slug: str | None = None,
+    verification_status: str = "NOT_VERIFIED",
+    profile_status: str = "DRAFT",
+    publication_status: str = "UNPUBLISHED",
+):
+    """Test helper: creates a `providers` row directly (mirroring
+    `make_user_with_role`'s shortcut for Identity), for tests that need a
+    provider profile to already exist without driving the full
+    registration -> outbox-delivery flow.
+    """
+    from app.modules.providers.domain.models import Provider, ProviderVisibilitySettings
+
+    async with session_factory() as session:
+        provider = Provider(
+            user_id=user_id,
+            provider_type=provider_type,
+            first_name=first_name,
+            last_name=last_name,
+            display_name=f"{first_name} {last_name}",
+            slug=slug or f"{first_name}-{last_name}-{user_id}".lower().replace(" ", "-"),
+            verification_status=verification_status,
+            profile_status=profile_status,
+            publication_status=publication_status,
+        )
+        session.add(provider)
+        await session.flush()
+        session.add(ProviderVisibilitySettings(provider_id=provider.id))
+        await session.commit()
+        return provider.id
 
 DOCTOR_SECTION_PAYLOADS = {
     "PERSONAL_INFORMATION": {
