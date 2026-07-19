@@ -1,0 +1,16 @@
+### System — health checks
+### No authentication required.
+
+@baseUrl = http://localhost:8000
+
+### Liveness check
+GET {{baseUrl}}/health
+
+### Readiness check (verifies DB connectivity)
+GET {{baseUrl}}/health/ready
+
+### OpenAPI schema (JSON)
+GET {{baseUrl}}/openapi.json
+
+### Swagger UI
+GET {{baseUrl}}/docs

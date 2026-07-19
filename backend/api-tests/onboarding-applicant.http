@@ -1,0 +1,244 @@
+### Onboarding — Applicant flow
+### Start an application, fill in its sections, upload documents, submit it,
+### and respond to information requests raised by a reviewer.
+### See ../README (api-tests) for setup notes.
+
+@baseUrl = http://localhost:8000
+@apiPrefix = {{baseUrl}}/api/v1
+
+# Use a DOCTOR applicant here — swap for a patient-registered account if you
+# registered under a different flow. This account needs the applicant role
+# (e.g. DOCTOR_APPLICANT) to have ONBOARDING_APPLICATION_* self permissions.
+@doctorEmail = herminialopes2@gmail.com
+@password = g00gl!eEy3s
+
+
+### Log in as the applicant
+# @name login
+POST {{apiPrefix}}/auth/login
+Content-Type: application/json
+
+{
+  "email": "{{doctorEmail}}",
+  "password": "{{password}}"
+}
+
+###
+
+@accessToken = {{login.response.body.$.data.accessToken}}
+
+
+###############################################################################
+# Application lifecycle
+###############################################################################
+
+### Start a new onboarding application
+# @name createApplication
+POST {{apiPrefix}}/onboarding/me/application
+Content-Type: application/json
+Authorization: Bearer {{accessToken}}
+
+{
+  "applicantType": "DOCTOR",
+  "purpose": "INITIAL_ONBOARDING",
+  "fullName": "Carlos Mendes"
+}
+
+###
+
+@applicationId = {{createApplication.response.body.$.data.id}}
+
+### Get the current user's onboarding application
+GET {{apiPrefix}}/onboarding/me/application
+Authorization: Bearer {{accessToken}}
+
+### Get required sections and documents
+GET {{apiPrefix}}/onboarding/me/application/requirements
+Authorization: Bearer {{accessToken}}
+
+### Get application completeness
+GET {{apiPrefix}}/onboarding/me/application/completeness
+Authorization: Bearer {{accessToken}}
+
+
+###############################################################################
+# Sections (DOCTOR applicant type — see section_definitions.py for other
+# applicant types' required fields: NUTRITIONIST mirrors DOCTOR;
+# HOSPITAL / CLINIC / PHARMACY use INSTITUTION_INFORMATION, OWNERSHIP,
+# BRANCH_INFORMATION, BANKING_DETAILS[, REGULATORY_LICENCES] instead.)
+###############################################################################
+
+### Update the PERSONAL_INFORMATION section
+PUT {{apiPrefix}}/onboarding/me/application/sections/PERSONAL_INFORMATION
+Content-Type: application/json
+Authorization: Bearer {{accessToken}}
+
+{
+  "fullName": "Carlos Mendes",
+  "dateOfBirth": "1985-03-20",
+  "nationalIdNumber": "123456789",
+  "address": {
+    "line1": "Rua das Flores 10",
+    "city": "Lisboa",
+    "postalCode": "1000-001",
+    "country": "PT"
+  }
+}
+
+### Update the PROFESSIONAL_REGISTRATION section
+PUT {{apiPrefix}}/onboarding/me/application/sections/PROFESSIONAL_REGISTRATION
+Content-Type: application/json
+Authorization: Bearer {{accessToken}}
+
+{
+  "registrationNumber": "OM-123456",
+  "registrationAuthority": "Ordem dos Médicos",
+  "registrationCountry": "PT",
+  "issueDate": "2015-09-01"
+}
+
+### Update the QUALIFICATIONS section
+PUT {{apiPrefix}}/onboarding/me/application/sections/QUALIFICATIONS
+Content-Type: application/json
+Authorization: Bearer {{accessToken}}
+
+{
+  "highestQualification": "Medical Degree (MD)",
+  "institution": "ISCTEM Mocambique"
+}
+
+### Update the DECLARATIONS section
+PUT {{apiPrefix}}/onboarding/me/application/sections/DECLARATIONS
+Content-Type: application/json
+Authorization: Bearer {{accessToken}}
+
+{
+  "informationAccuracyConfirmed": true,
+  "codeOfConductAccepted": true
+}
+
+
+###############################################################################
+# Documents
+###############################################################################
+
+### Request a document upload URL
+# @name uploadRequest
+POST {{apiPrefix}}/onboarding/me/application/documents/upload-request
+Content-Type: application/json
+Authorization: Bearer {{accessToken}}
+
+{
+  "documentType": "PROFESSIONAL_INDEMNITY_CERTIFICATE",
+  "fileName": "professional_id_cert.pdf",
+  "mimeType": "application/pdf",
+  "fileSize": 204800
+}
+
+
+
+###
+
+@applicationDocumentId = {{uploadRequest.response.body.$.data.applicationDocumentId}}
+@applicationDocumentId = 5465e618-df1d-41c8-8711-81ff115b4085
+
+### Confirm a document upload
+# In a real client you'd PUT the file bytes to `uploadUrl` from the
+# response above before calling this.
+POST {{apiPrefix}}/onboarding/me/application/documents/{{applicationDocumentId}}/confirm
+Content-Type: application/json
+Authorization: Bearer {{accessToken}}
+
+{
+  "checksum": "sha256:0000000000000000000000000000000000000000000000000000000000000000",
+  "documentNumber": "ID-123456789",
+  "issuingAuthority": "Instituto dos Registos e do Notariado",
+  "issuingCountry": "PT",
+  "issueDate": "2019-01-15",
+  "expiryDate": "2029-01-15"
+}
+
+### List application documents
+GET {{apiPrefix}}/onboarding/me/application/documents
+Authorization: Bearer {{accessToken}}
+
+### Replace a document
+POST {{apiPrefix}}/onboarding/me/application/documents/{{applicationDocumentId}}/replace
+Content-Type: application/json
+Authorization: Bearer {{accessToken}}
+
+{
+  "documentType": "MEDICAL_COUNCIL_CERTIFICATE",
+  "fileName": "med-certificate-1.pdf",
+  "mimeType": "application/pdf",
+  "fileSize": 208000
+}
+
+### Delete a document
+DELETE {{apiPrefix}}/onboarding/me/application/documents/{{applicationDocumentId}}
+Authorization: Bearer {{accessToken}}
+
+
+###############################################################################
+# Submit / withdraw
+###############################################################################
+
+### Submit the application for review
+POST {{apiPrefix}}/onboarding/me/application/submit
+Content-Type: application/json
+Authorization: Bearer {{accessToken}}
+
+{
+  "declarationAccepted": true,
+  "informationAccuracyConfirmed": true,
+  "verificationConsentAccepted": true,
+  "submissionVersion": 1
+}
+
+### Withdraw the application
+POST {{apiPrefix}}/onboarding/me/application/withdraw
+Content-Type: application/json
+Authorization: Bearer {{accessToken}}
+
+{
+  "reason": "Applying under a different professional category"
+}
+
+
+###############################################################################
+# Information requests (raised by a reviewer — see onboarding-back-office.http)
+###############################################################################
+
+### List information requests on the application
+# @name listInfoRequests
+GET {{apiPrefix}}/onboarding/me/application/information-requests
+Authorization: Bearer {{accessToken}}
+
+###
+
+@informationRequestId = {{listInfoRequests.response.body.$.data[0].id}}
+
+### Respond to an information request
+POST {{apiPrefix}}/onboarding/me/application/information-requests/{{informationRequestId}}/respond
+Content-Type: application/json
+Authorization: Bearer {{accessToken}}
+
+{
+  "message": "Updated my registration number as requested, and attached a clearer scan.",
+  "documentIds": [
+    "{{applicationDocumentId}}"
+  ],
+  "updatedFields": [
+    "PROFESSIONAL_REGISTRATION.registrationNumber"
+  ]
+}
+
+### Resubmit after satisfying an information request
+POST {{apiPrefix}}/onboarding/me/application/resubmit
+Content-Type: application/json
+Authorization: Bearer {{accessToken}}
+
+{
+  "informationRequestId": "{{informationRequestId}}",
+  "informationAccuracyConfirmed": true
+}

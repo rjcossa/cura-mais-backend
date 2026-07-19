@@ -1,0 +1,148 @@
+### Users + Back-Office Administration
+### See ../README (api-tests) for setup notes.
+
+@baseUrl = http://localhost:8000
+@apiPrefix = {{baseUrl}}/api/v1
+
+@patientEmail = patient.test1@example.com
+@password = SuperSecret123!
+
+# An account with PLATFORM_ADMIN (or another role holding the relevant
+# ROLE_ASSIGN / USER_ADMIN_SUSPEND / USER_ADMIN_ACTIVATE / SESSION_ADMIN_REVOKE
+# permission) — there's no self-serve bootstrap for this, see the api-tests README.
+@adminEmail = admin@example.com
+@adminPassword = SuperSecret123!
+
+# A target user id to administer — copy from "Get the current user's profile" below,
+# or from any registration response.
+@targetUserId = REPLACE_WITH_TARGET_USER_ID
+
+
+### Log in as the account under test
+# @name login
+POST {{apiPrefix}}/auth/login
+Content-Type: application/json
+
+{
+  "email": "{{patientEmail}}",
+  "password": "{{password}}"
+}
+
+###
+
+@accessToken = {{login.response.body.$.data.accessToken}}
+
+### Log in as an admin (for the Back-Office Administration section below)
+# @name adminLogin
+POST {{apiPrefix}}/auth/login
+Content-Type: application/json
+
+{
+  "email": "{{adminEmail}}",
+  "password": "{{adminPassword}}"
+}
+
+###
+
+@adminAccessToken = {{adminLogin.response.body.$.data.accessToken}}
+
+
+###############################################################################
+# Users
+###############################################################################
+
+### Get the current user's profile
+GET {{apiPrefix}}/users/me
+Authorization: Bearer {{accessToken}}
+
+### Update preferred language / timezone
+PATCH {{apiPrefix}}/users/me
+Content-Type: application/json
+Authorization: Bearer {{accessToken}}
+
+{
+  "preferredLanguage": "pt-PT",
+  "timezone": "Europe/Lisbon"
+}
+
+### Request an email address change
+POST {{apiPrefix}}/users/me/email/change-request
+Content-Type: application/json
+Authorization: Bearer {{accessToken}}
+
+{
+  "newEmail": "patient.newaddress@example.com",
+  "currentPassword": "{{password}}"
+}
+
+### Confirm an email address change
+# Token is printed to the uvicorn console by the mock email adapter — paste it below.
+POST {{apiPrefix}}/users/me/email/confirm
+Content-Type: application/json
+Authorization: Bearer {{accessToken}}
+
+{
+  "token": "REPLACE_WITH_TOKEN_FROM_CONSOLE"
+}
+
+### Request a mobile number change
+POST {{apiPrefix}}/users/me/mobile/change-request
+Content-Type: application/json
+Authorization: Bearer {{accessToken}}
+
+{
+  "newMobileNumber": "+351911000099",
+  "currentPassword": "{{password}}"
+}
+
+### Confirm a mobile number change with the OTP
+# Code is printed to the uvicorn console by the mock SMS adapter — paste it below.
+POST {{apiPrefix}}/users/me/mobile/confirm
+Content-Type: application/json
+Authorization: Bearer {{accessToken}}
+
+{
+  "mobileNumber": "+351911000099",
+  "code": "REPLACE_WITH_OTP_FROM_CONSOLE"
+}
+
+### Deactivate the current user's account
+POST {{apiPrefix}}/users/me/deactivate
+Content-Type: application/json
+Authorization: Bearer {{accessToken}}
+
+{
+  "currentPassword": "{{password}}"
+}
+
+
+###############################################################################
+# Back-Office Administration (requires an admin/support token — see adminAccessToken above)
+###############################################################################
+
+### Assign a role to a user
+POST {{apiPrefix}}/admin/users/{{targetUserId}}/roles
+Content-Type: application/json
+Authorization: Bearer {{adminAccessToken}}
+
+{
+  "roleCode": "BACK_OFFICE_REVIEWER",
+  "reason": "Onboarding new reviewer to the back office team"
+}
+
+### Revoke a role from a user
+DELETE {{apiPrefix}}/admin/users/{{targetUserId}}/roles/BACK_OFFICE_REVIEWER
+Authorization: Bearer {{adminAccessToken}}
+
+### Suspend a user account
+# `reason` is a query parameter, not a JSON body.
+POST {{apiPrefix}}/admin/users/{{targetUserId}}/suspend?reason=Suspicious%20login%20activity%20reported%20by%20user
+Authorization: Bearer {{adminAccessToken}}
+
+### Reactivate a suspended/locked user account
+POST {{apiPrefix}}/admin/users/{{targetUserId}}/activate
+Authorization: Bearer {{adminAccessToken}}
+
+### Revoke every active session for a user
+POST {{apiPrefix}}/admin/users/{{targetUserId}}/sessions/revoke-all
+Authorization: Bearer {{adminAccessToken}}

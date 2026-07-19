@@ -1,0 +1,328 @@
+### Onboarding — Back Office (search/assignment, review, decisions)
+### Requires a token for a user holding the relevant ONBOARDING_* permission
+### for each request (BACK_OFFICE_REVIEWER covers review-side actions,
+### BACK_OFFICE_APPROVER/PLATFORM_ADMIN also cover approve/reject/suspend —
+### approvals are deliberately withheld from BACK_OFFICE_REVIEWER, maker-checker).
+### See ../README (api-tests) for how to bootstrap an admin account.
+
+@baseUrl = http://localhost:8000
+@apiPrefix = {{baseUrl}}/api/v1
+
+@reviewerEmail = reviewer@curamais.com
+@reviewerPassword = g00gl!eEy3s
+@adminEmail = support@ivasmz.com
+
+# A second reviewer account's user id, used by assign/reassign examples below.
+@otherReviewerId = 3132c6d1-5a90-49e7-8a3c-24e18bf2d623
+
+
+### Log in as a back-office reviewer/approver
+# @name login
+POST {{apiPrefix}}/auth/login
+Content-Type: application/json
+
+{
+  "email": "{{reviewerEmail}}",
+  "password": "{{reviewerPassword}}"
+}
+
+###
+
+@accessToken = {{login.response.body.$.data.accessToken}}
+
+
+
+### Log out the current session
+POST {{apiPrefix}}/auth/logout
+Content-Type: application/json
+Authorization: Bearer {{accessToken}}
+
+{
+  "refreshToken": "{{{{accessToken}}}}"
+}
+
+###############################################################################
+# Search / detail
+###############################################################################
+
+### Search onboarding applications
+# @name searchApplications
+GET {{apiPrefix}}/back-office/onboarding/applications?status=SUBMITTED&page=0&size=20
+Authorization: Bearer {{accessToken}}
+
+###
+
+@applicationId = {{searchApplications.response.body.$.data.content[0].applicationId}}
+@applicationId = b9e3f7ad-8077-44b9-bb0e-d90a22058cf2
+### Search onboarding applications — unassigned queue for a given applicant type
+GET {{apiPrefix}}/back-office/onboarding/applications?applicant_type=DOCTOR&unassigned=true&page=0&size=20
+Authorization: Bearer {{accessToken}}
+
+### Get application detail
+GET {{apiPrefix}}/back-office/onboarding/applications/{{applicationId}}
+Authorization: Bearer {{accessToken}}
+
+
+###############################################################################
+# Assignment
+###############################################################################
+
+### Assign an application to a reviewer
+POST {{apiPrefix}}/back-office/onboarding/applications/{{applicationId}}/assign
+Content-Type: application/json
+Authorization: Bearer {{accessToken}}
+
+{
+  "reviewerId": "{{otherReviewerId}}",
+  "assignmentType": "PRIMARY_REVIEW",
+  "reason": "Balancing reviewer workload"
+}
+
+### Claim an unassigned application
+POST {{apiPrefix}}/back-office/onboarding/applications/{{applicationId}}/claim
+Authorization: Bearer {{accessToken}}
+
+### Reassign an application to a different reviewer
+POST {{apiPrefix}}/back-office/onboarding/applications/{{applicationId}}/reassign
+Content-Type: application/json
+Authorization: Bearer {{accessToken}}
+
+{
+  "newReviewerId": "{{otherReviewerId}}",
+  "reason": "Original reviewer is out of office"
+}
+
+### Release an application back to the unassigned queue
+POST {{apiPrefix}}/back-office/onboarding/applications/{{applicationId}}/release
+Content-Type: application/json
+Authorization: Bearer {{accessToken}}
+
+{
+  "reason": "Conflict of interest"
+}
+
+
+###############################################################################
+# Risk flags
+###############################################################################
+
+### Raise a risk flag
+# @name raiseRiskFlag
+POST {{apiPrefix}}/back-office/onboarding/applications/{{applicationId}}/risk-flags
+Content-Type: application/json
+Authorization: Bearer {{accessToken}}
+
+{
+  "flagCode": "DOCUMENT_INCONSISTENCY",
+  "riskLevel": "HIGH",
+  "description": "Registration number on document does not match the declared section value"
+}
+
+###
+
+@riskFlagId = {{raiseRiskFlag.response.body.$.data.riskFlagId}}
+
+### Resolve a risk flag
+POST {{apiPrefix}}/back-office/onboarding/applications/{{applicationId}}/risk-flags/{{riskFlagId}}/resolve
+Content-Type: application/json
+Authorization: Bearer {{accessToken}}
+
+{
+  "status": "RESOLVED",
+  "resolutionComments": "Applicant provided a corrected document confirming the registration number",
+  "evidenceReference": "{{applicationId}}"
+}
+
+
+###############################################################################
+# Notes
+###############################################################################
+
+### Add an internal note to an application
+POST {{apiPrefix}}/back-office/onboarding/applications/{{applicationId}}/notes
+Content-Type: application/json
+Authorization: Bearer {{accessToken}}
+
+{
+  "content": "Called the applicant to confirm their availability for a follow-up document request."
+}
+
+
+###############################################################################
+# Review
+###############################################################################
+
+### Start a review
+# @name startReview
+POST {{apiPrefix}}/back-office/onboarding/applications/{{applicationId}}/reviews/start
+Content-Type: application/json
+Authorization: Bearer {{accessToken}}
+
+{
+  "reviewType": "INITIAL_REVIEW"
+}
+
+###
+
+@reviewId = {{startReview.response.body.$.data.reviewId}}
+
+### Get a review with its checklist
+# @name getReview
+GET {{apiPrefix}}/back-office/onboarding/applications/{{applicationId}}/reviews/{{reviewId}}
+Authorization: Bearer {{accessToken}}
+
+###
+
+@checklistItemId = {{getReview.response.body.$.data.checklistItems[2].id}}
+
+### Update a checklist item
+PATCH {{apiPrefix}}/back-office/onboarding/applications/{{applicationId}}/reviews/{{reviewId}}/checklist-items/{{checklistItemId}}
+Content-Type: application/json
+Authorization: Bearer {{accessToken}}
+
+{
+  "result": "PASS",
+  "comments": "National ID is valid and matches the doctor's name",
+  "evidenceReference": "NATIONAL_ID"
+}
+
+### Review an application document
+# applicationDocumentId — copy from "List application documents" in
+# onboarding-applicant.http, or from the application detail response above.
+@applicationDocumentId = REPLACE_WITH_APPLICATION_DOCUMENT_ID
+POST {{apiPrefix}}/back-office/onboarding/applications/{{applicationId}}/documents/{{applicationDocumentId}}/review
+Content-Type: application/json
+Authorization: Bearer {{accessToken}}
+
+{
+  "decision": "ACCEPTED",
+  "comments": "Document is legible and details match the professional registration section",
+  "verificationMethod": "MANUAL_REVIEW",
+  "verifiedDocumentNumber": "OM-123456",
+  "verifiedExpiryDate": "2029-01-15"
+}
+
+### Complete a review with a recommendation
+POST {{apiPrefix}}/back-office/onboarding/applications/{{applicationId}}/reviews/{{reviewId}}/complete
+Content-Type: application/json
+Authorization: Bearer {{accessToken}}
+
+{
+  "recommendation": "APPROVE",
+  "comments": "All mandatory checklist items passed, documents verified"
+}
+
+
+###############################################################################
+# Verification checks
+###############################################################################
+
+### Create a verification check
+# @name createVerificationCheck
+POST {{apiPrefix}}/back-office/onboarding/applications/{{applicationId}}/verification-checks
+Content-Type: application/json
+Authorization: Bearer {{accessToken}}
+
+{
+  "checkType": "PROFESSIONAL_REGISTRATION_LOOKUP",
+  "provider": "ORDEM_DOS_MEDICOS_REGISTRY",
+  "subjectReference": "OM-123456"
+}
+
+###
+
+@verificationCheckId = {{createVerificationCheck.response.body.$.data.id}}
+
+### Complete a verification check
+POST {{apiPrefix}}/back-office/onboarding/applications/{{applicationId}}/verification-checks/{{verificationCheckId}}/complete
+Content-Type: application/json
+Authorization: Bearer {{accessToken}}
+
+{
+  "result": "MATCH",
+  "externalReference": "REG-LOOKUP-998877",
+  "verifiedData": {
+    "registrationStatus": "ACTIVE",
+    "registeredName": "Carlos Mendes"
+  },
+  "comments": "Registry lookup confirms an active licence under the declared name"
+}
+
+
+###############################################################################
+# Information requests (reviewer side — applicant responds via onboarding-applicant.http)
+###############################################################################
+
+### Create an information request
+POST {{apiPrefix}}/back-office/onboarding/applications/{{applicationId}}/information-requests
+Content-Type: application/json
+Authorization: Bearer {{accessToken}}
+
+{
+  "reasonCode": "DOCUMENT_ILLEGIBLE",
+  "message": "The uploaded national ID scan is too blurry to verify — please re-upload a clearer copy.",
+  "responseDueDate": "2026-08-15",
+  "items": [
+    {
+      "itemType": "DOCUMENT",
+      "documentType": "NATIONAL_ID",
+      "instruction": "Upload a clearer scan or photo of your national ID, all four corners visible"
+    }
+  ]
+}
+
+
+###############################################################################
+# Decisions
+###############################################################################
+
+### Approve an application
+POST {{apiPrefix}}/back-office/onboarding/applications/{{applicationId}}/approve
+Content-Type: application/json
+Authorization: Bearer {{accessToken}}
+
+{
+  "decisionComments": "All checks passed, documents verified, no unresolved risk flags",
+  "approvalValidUntil": "2028-01-01T00:00:00Z"
+}
+
+### Conditionally approve an application
+POST {{apiPrefix}}/back-office/onboarding/applications/{{applicationId}}/conditionally-approve
+Content-Type: application/json
+Authorization: Bearer {{accessToken}}
+
+{
+  "decisionComments": "Approved pending submission of updated professional indemnity certificate",
+  "approvalValidUntil": "2028-01-01T00:00:00Z",
+  "conditions": [
+    {
+      "code": "PENDING_INDEMNITY_CERTIFICATE",
+      "description": "Submit a professional indemnity certificate valid for the next 12 months",
+      "dueDate": "2026-09-15",
+      "blockingAfterDueDate": true
+    }
+  ]
+}
+
+### Reject an application
+POST {{apiPrefix}}/back-office/onboarding/applications/{{applicationId}}/reject
+Content-Type: application/json
+Authorization: Bearer {{accessToken}}
+
+{
+  "reasonCode": "PROFESSIONAL_REGISTRATION_NOT_VERIFIED",
+  "decisionComments": "Registry lookup returned no match for the declared registration number",
+  "allowNewApplication": true,
+  "coolingOffPeriodDays": 30
+}
+
+### Suspend an approved applicant/provider
+POST {{apiPrefix}}/back-office/onboarding/applications/{{applicationId}}/suspend
+Content-Type: application/json
+Authorization: Bearer {{accessToken}}
+
+{
+  "reasonCode": "COMPLAINT_UNDER_INVESTIGATION",
+  "comments": "Suspended pending outcome of a professional conduct complaint",
+  "effectiveImmediately": true
+}

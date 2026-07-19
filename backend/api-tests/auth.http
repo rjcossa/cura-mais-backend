@@ -1,0 +1,287 @@
+### Authentication, Verification, Password, MFA, Sessions, Social Login
+### See ../README (api-tests) for setup notes — mock email/SMS provider
+### tokens print to the uvicorn console.
+
+@baseUrl = http://localhost:8000
+@apiPrefix = {{baseUrl}}/api/v1
+
+# Registration needs a fresh email/mobile every run — edit these before
+# re-running the register requests, or reset your local DB.
+@patientEmail = ruij.cossa@gmail.com
+@patientMobile = +258849901374
+@doctorEmail = herminialopes2@gmail.com
+@doctorMobile = +258848137466
+@password = g00gl!eEy3s
+
+
+###############################################################################
+# Authentication
+###############################################################################
+
+### Register a new patient
+# @name registerPatient
+POST {{apiPrefix}}/auth/register/patient
+Content-Type: application/json
+
+{
+  "email": "ruij.cossa@gmail.com",
+  "password": "{{password}}",
+  "mobileNumber": "+258849901374",
+  "firstName": "Rui Jorge",
+  "lastName": "Cossa",
+  "dateOfBirth": "1992-04-20",
+  "termsAccepted": true,
+  "privacyPolicyAccepted": true,
+  "healthDataConsentAccepted": true
+}
+
+### Register a new doctor applicant
+# @name registerDoctor
+POST {{apiPrefix}}/auth/register/doctor
+Content-Type: application/json
+
+{
+  "email": "{{doctorEmail}}",
+  "password": "{{password}}",
+  "mobileNumber": "{{doctorMobile}}",
+  "firstName": "Carlos",
+  "lastName": "Mendes",
+  "termsAccepted": true,
+  "privacyPolicyAccepted": true,
+  "professionalDataConsentAccepted": true
+}
+
+### Log in with email and password
+# @name login
+POST {{apiPrefix}}/auth/login
+Content-Type: application/json
+
+{
+  "email": "{{doctorEmail}}",
+  "password": "{{password}}",
+  "device": {
+    "deviceId": "rest-client-test-device",
+    "deviceName": "REST Client",
+    "platform": "WEB",
+    "appVersion": "1.0.0",
+    "rememberMe": false
+  }
+}
+
+###
+
+@accessToken = {{login.response.body.$.data.accessToken}}
+@refreshToken = {{login.response.body.$.data.refreshToken}}
+
+### Rotate a refresh token for a new access/refresh token pair
+# @name refresh
+POST {{apiPrefix}}/auth/refresh
+Content-Type: application/json
+
+{
+  "refreshToken": "{{refreshToken}}",
+  "device": {
+    "deviceId": "rest-client-test-device",
+    "platform": "WEB",
+    "rememberMe": false
+  }
+}
+
+###
+
+@rotatedAccessToken = {{refresh.response.body.$.data.accessToken}}
+
+### Log out the current session
+POST {{apiPrefix}}/auth/logout
+Content-Type: application/json
+Authorization: Bearer {{accessToken}}
+
+{
+  "refreshToken": "{{refreshToken}}"
+}
+
+### Log out of all devices/sessions
+POST {{apiPrefix}}/auth/logout-all
+Authorization: Bearer {{accessToken}}
+
+
+###############################################################################
+# Verification
+###############################################################################
+
+### Resend the email verification link
+POST {{apiPrefix}}/auth/email/resend-verification
+Content-Type: application/json
+
+{
+  "email": "{{patientEmail}}"
+}
+
+### Verify an email address
+# Token is printed to the uvicorn console by the mock email adapter — paste it below.
+POST {{apiPrefix}}/auth/email/verify
+Content-Type: application/json
+
+{
+  "token": "REPLACE_WITH_TOKEN_FROM_CONSOLE"
+}
+
+### Send a one-time code to a mobile number
+POST {{apiPrefix}}/auth/mobile/send-otp
+Content-Type: application/json
+
+{
+  "mobileNumber": "{{patientMobile}}",
+  "purpose": "MOBILE_VERIFICATION"
+}
+
+### Verify a mobile one-time code
+# Code is printed to the uvicorn console by the mock SMS adapter — paste it below.
+POST {{apiPrefix}}/auth/mobile/verify-otp
+Content-Type: application/json
+
+{
+  "mobileNumber": "{{patientMobile}}",
+  "code": "REPLACE_WITH_OTP_FROM_CONSOLE",
+  "purpose": "MOBILE_VERIFICATION"
+}
+
+
+###############################################################################
+# Password
+###############################################################################
+
+### Change the current user's password
+POST {{apiPrefix}}/auth/password/change
+Content-Type: application/json
+Authorization: Bearer {{accessToken}}
+
+{
+  "currentPassword": "{{password}}",
+  "newPassword": "EvenStrongerSecret456!"
+}
+
+### Request a password reset link
+POST {{apiPrefix}}/auth/password/forgot
+Content-Type: application/json
+
+{
+  "email": "{{patientEmail}}"
+}
+
+### Reset a password using a reset token
+# Token is printed to the uvicorn console by the mock email adapter — paste it below.
+POST {{apiPrefix}}/auth/password/reset
+Content-Type: application/json
+
+{
+  "token": "tpscK9U0e6QMXtn7GLUsiTD5F6EsRGBLS9iaJsXNT54",
+  "newPassword": "g00gl!eEy3s"
+}
+
+
+###############################################################################
+# Multi-Factor Authentication
+###############################################################################
+
+### Start authenticator-app (TOTP) enrolment
+# @name mfaEnrol
+POST {{apiPrefix}}/auth/mfa/authenticator/enrol
+Authorization: Bearer {{accessToken}}
+
+###
+
+@enrolmentId = {{mfaEnrol.response.body.$.data.enrolmentId}}
+@totpSecret = {{mfaEnrol.response.body.$.data.secret}}
+
+### Confirm authenticator enrolment with a TOTP code
+# Compute the code from {{totpSecret}}, e.g.:
+#   python3 -c "import pyotp; print(pyotp.TOTP('PASTE_SECRET').now())"
+POST {{apiPrefix}}/auth/mfa/authenticator/confirm
+Content-Type: application/json
+Authorization: Bearer {{accessToken}}
+
+{
+  "enrolmentId": "{{enrolmentId}}",
+  "code": "REPLACE_WITH_TOTP_CODE"
+}
+
+### Complete login by verifying an MFA challenge
+# challengeId comes back on the /auth/login response when the account has MFA enabled.
+POST {{apiPrefix}}/auth/mfa/verify
+Content-Type: application/json
+
+{
+  "challengeId": "REPLACE_WITH_CHALLENGE_ID_FROM_LOGIN_RESPONSE",
+  "method": "AUTHENTICATOR",
+  "code": "REPLACE_WITH_TOTP_CODE"
+}
+
+### Regenerate recovery codes (invalidates all unused prior codes)
+POST {{apiPrefix}}/auth/mfa/recovery-codes/regenerate
+Authorization: Bearer {{accessToken}}
+
+### Disable an MFA method
+DELETE {{apiPrefix}}/auth/mfa/{{enrolmentId}}
+Content-Type: application/json
+Authorization: Bearer {{accessToken}}
+
+{
+  "currentPassword": "{{password}}"
+}
+
+
+###############################################################################
+# Sessions
+###############################################################################
+
+### List active sessions
+# @name listSessions
+GET {{apiPrefix}}/auth/sessions
+Authorization: Bearer {{accessToken}}
+
+###
+
+@sessionId = {{listSessions.response.body.$.data[0].id}}
+
+### Revoke a session
+DELETE {{apiPrefix}}/auth/sessions/{{sessionId}}
+Authorization: Bearer {{accessToken}}
+
+
+###############################################################################
+# Social Login
+###############################################################################
+
+### Log in or register via Google / Apple / Facebook
+# identityToken must be a real token issued by the provider's SDK — this
+# will 401 with a placeholder unless GOOGLE_CLIENT_ID / APPLE_CLIENT_ID /
+# FACEBOOK_APP_ID are configured and the token is genuine.
+POST {{apiPrefix}}/auth/social/login
+Content-Type: application/json
+
+{
+  "provider": "GOOGLE",
+  "identityToken": "REPLACE_WITH_PROVIDER_IDENTITY_TOKEN",
+  "requestedAccountType": "PATIENT",
+  "termsAccepted": true,
+  "privacyPolicyAccepted": true,
+  "device": {
+    "platform": "WEB",
+    "rememberMe": false
+  }
+}
+
+### Link an additional social provider to the current account
+POST {{apiPrefix}}/auth/social/link
+Content-Type: application/json
+Authorization: Bearer {{accessToken}}
+
+{
+  "provider": "GOOGLE",
+  "identityToken": "REPLACE_WITH_PROVIDER_IDENTITY_TOKEN"
+}
+
+### Unlink a social provider
+DELETE {{apiPrefix}}/auth/social/GOOGLE
+Authorization: Bearer {{accessToken}}
